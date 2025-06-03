@@ -1,7 +1,10 @@
-fastapi
-uvicorn
-sqlalchemy
-psycopg2-binary
-passlib[bcrypt]
+fastapi==0.104.1
+uvicorn==0.24.0
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+pydantic==2.5.2
+pydantic[email]
 python-jose[cryptography]
-pydantic
+passlib[bcrypt]
+python-multipart
+email-validator
