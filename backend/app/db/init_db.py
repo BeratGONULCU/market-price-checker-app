@@ -16,6 +16,7 @@ from app.models.price_alert import PriceAlert
 from app.models.price_history import PriceHistory
 from app.models.rating import Rating
 from app.models.search_history import SearchHistory
+from app.models.shopping_list import ShoppingList
 from app.models.shopping_list_item import ShoppingListItem
 from app.models.user_setting import UserSetting
 
@@ -32,21 +33,5 @@ def init_db():
         conn.execute(text("SET session_replication_role = 'origin';"))
         conn.commit()
     
-    # Create tables in the correct order
-    # First create tables without foreign keys
-    User.__table__.create(engine)
-    Category.__table__.create(engine)
-    Market.__table__.create(engine)
-    
-    # Then create tables with foreign keys
-    Product.__table__.create(engine)
-    ProductDetail.__table__.create(engine)
-    Comment.__table__.create(engine)
-    Favorite.__table__.create(engine)
-    Notification.__table__.create(engine)
-    PriceAlert.__table__.create(engine)
-    PriceHistory.__table__.create(engine)
-    Rating.__table__.create(engine)
-    SearchHistory.__table__.create(engine)
-    ShoppingListItem.__table__.create(engine)
-    UserSetting.__table__.create(engine) 
+    # Create all tables
+    Base.metadata.create_all(bind=engine) 

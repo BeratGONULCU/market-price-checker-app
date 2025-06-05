@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
+from datetime import datetime
 from .base import BaseModel
 
 class ProductDetail(BaseModel):
@@ -13,4 +14,4 @@ class ProductDetail(BaseModel):
 
     # Relationships
     product = relationship("Product", back_populates="details")
-    market = relationship("Market") 
+    market = relationship("Market", lazy='joined') 

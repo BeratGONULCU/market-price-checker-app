@@ -14,7 +14,6 @@ class Product(Base):
     brand = Column(String(100))
     image_url = Column(String(255))
     barcode = Column(String(50), unique=True, index=True)
-    market_id = Column(Integer, ForeignKey("markets.id"))
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -26,7 +25,6 @@ class Product(Base):
     price_history = relationship("PriceHistory", back_populates="product")
     ratings = relationship("Rating", back_populates="product")
     shopping_list_items = relationship("ShoppingListItem", back_populates="product")
-    market = relationship("Market", back_populates="products")
     price_alerts = relationship("PriceAlert", back_populates="product")
 
     # Diğer ilişkiler ve alanlar burada kalabilir 

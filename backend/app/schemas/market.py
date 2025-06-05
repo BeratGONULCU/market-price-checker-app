@@ -25,4 +25,7 @@ class MarketInDB(MarketBase, BaseSchema):
     pass
 
 class Market(MarketInDB):
-    pass 
+    id: int
+
+    class Config:
+        from_attributes = True 

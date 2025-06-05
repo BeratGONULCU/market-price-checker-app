@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = "market_db"
-    SQLALCHEMY_DATABASE_URL: str = f"postgresql://{POSTGRES_USER}@{POSTGRES_SERVER}/{POSTGRES_DB}"
+    SQLALCHEMY_DATABASE_URL: str = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}/{POSTGRES_DB}"
 
     # JWT settings
     SECRET_KEY: str = "your-secret-key-here"  # Change this in production

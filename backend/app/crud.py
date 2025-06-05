@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from typing import List, Optional
 from datetime import datetime
@@ -191,7 +191,9 @@ def create_price_history(db: Session, history: schemas.PriceHistoryCreate):
 
 # Product CRUD
 def get_product(db: Session, product_id: int):
-    return db.query(models.Product).filter(models.Product.id == product_id).first()
+    return db.query(models.Product).options(
+        joinedload(models.Product.details).joinedload(models.ProductDetail.market)
+    ).filter(models.Product.id == product_id).first()
 
 def get_products(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Product).offset(skip).limit(limit).all()
@@ -211,7 +213,9 @@ def get_product_detail(db: Session, detail_id: int):
     return db.query(models.ProductDetail).filter(models.ProductDetail.id == detail_id).first()
 
 def get_product_details(db: Session, product_id: int, skip: int = 0, limit: int = 100):
-    return db.query(models.ProductDetail).filter(
+    return db.query(models.ProductDetail).options(
+        joinedload(models.ProductDetail.market)
+    ).filter(
         models.ProductDetail.product_id == product_id
     ).offset(skip).limit(limit).all()
 

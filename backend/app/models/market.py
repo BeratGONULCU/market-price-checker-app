@@ -19,5 +19,4 @@ class Market(Base):
 
     # Relationships
     product_details = relationship("ProductDetail", back_populates="market")
-    price_history = relationship("PriceHistory", back_populates="market")
-    products = relationship("Product", back_populates="market") 
+    price_history = relationship("PriceHistory", back_populates="market") 

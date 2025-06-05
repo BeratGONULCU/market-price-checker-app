@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
+import logging
 
 from app.db.session import get_db
 from app.models.product import Product
+from app.models.product_detail import ProductDetail
 from app.schemas.product import Product as ProductSchema, ProductCreate, ProductUpdate
 from ... import crud, schemas
 
@@ -23,25 +25,61 @@ def read_products(
     max_price: Optional[float] = None,
     db: Session = Depends(get_db)
 ):
-    query = db.query(Product)
-    
-    if category_id:
-        query = query.filter(Product.category_id == category_id)
-    if search:
-        query = query.filter(Product.name.ilike(f"%{search}%"))
-    if min_price is not None:
-        query = query.filter(Product.price >= min_price)
-    if max_price is not None:
-        query = query.filter(Product.price <= max_price)
-    
-    products = query.offset(skip).limit(limit).all()
-    return products
+    try:
+        # Önce ürünleri al
+        query = db.query(Product)
+        
+        if category_id:
+            query = query.filter(Product.category_id == category_id)
+        if search:
+            query = query.filter(Product.name.ilike(f"%{search}%"))
+        if min_price is not None:
+            query = query.filter(Product.price >= min_price)
+        if max_price is not None:
+            query = query.filter(Product.price <= max_price)
+        
+        products = query.offset(skip).limit(limit).all()
+        
+        # Her ürün için detayları ve market bilgilerini al
+        for product in products:
+            details = db.query(ProductDetail).join(
+                ProductDetail.market,
+                isouter=True
+            ).filter(
+                ProductDetail.product_id == product.id
+            ).all()
+            product.details = details
+        
+        # Debug logs
+        logging.info(f"Found {len(products)} products")
+        if products:
+            first_product = products[0]
+            logging.info(f"First product: ID={first_product.id}, Name={first_product.name}")
+            logging.info(f"Product details count: {len(first_product.details)}")
+            if first_product.details:
+                first_detail = first_product.details[0]
+                logging.info(f"First detail: Price={first_detail.price}, Market={first_detail.market.name if first_detail.market else 'No market'}")
+        
+        return products
+    except Exception as e:
+        logging.error(f"Error in read_products: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{product_id}", response_model=ProductSchema)
 def read_product(product_id: int, db: Session = Depends(get_db)):
-    db_product = db.query(Product).filter(Product.id == product_id).first()
+    # Ürünü ve ilişkili tüm verileri tek sorguda al
+    db_product = db.query(Product).options(
+        joinedload(Product.details).joinedload(ProductDetail.market)
+    ).filter(Product.id == product_id).first()
+    
     if db_product is None:
         raise HTTPException(status_code=404, detail="Product not found")
+    
+    # Debug log
+    logging.info(f"Product details count: {len(db_product.details)}")
+    for detail in db_product.details:
+        logging.info(f"Detail: Price={detail.price}, Market={detail.market.name if detail.market else 'No market'}")
+    
     return db_product
 
 @router.put("/{product_id}", response_model=ProductSchema)

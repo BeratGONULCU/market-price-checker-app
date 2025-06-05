@@ -3,12 +3,14 @@ from typing import List, Optional
 from datetime import datetime
 from .base import BaseSchema
 from .category import Category
+from .product_detail import ProductDetail
 
 class ProductDetailBase(BaseModel):
-    key: str
-    value: str
-    unit: Optional[str] = None
     product_id: int
+    market_id: int
+    price: float
+    expiration_date: Optional[datetime] = None
+    calories: Optional[float] = None
 
 class ProductDetailCreate(ProductDetailBase):
     pass
@@ -57,7 +59,6 @@ class ProductInDB(ProductBase, BaseSchema):
 class Product(ProductInDB):
     id: int
     details: List[ProductDetail] = []
-    prices: List[ProductPrice] = []
     category_ids: List[int] = []
     categories: List[Category] = []
 
