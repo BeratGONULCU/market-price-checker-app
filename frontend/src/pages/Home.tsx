@@ -25,8 +25,9 @@ import {
   AppBar,
   Toolbar,
   Button,
+  Chip,
 } from '@mui/material';
-import { FavoriteBorder, CompareArrows, Close, Favorite, Logout } from '@mui/icons-material';
+import { FavoriteBorder, CompareArrows, Close, Favorite, Logout, ShoppingCart } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { productService, Product, ProductDetail } from '../services/product';
 import { categoryService, Category } from '../services/category';
@@ -46,6 +47,7 @@ const Home: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [openModal, setOpenModal] = useState(false);
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
+  const [testDetails, setTestDetails] = useState<ProductDetail[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -68,6 +70,8 @@ const Home: React.FC = () => {
         } catch (error) {
           console.error('Favoriler yüklenirken hata:', error);
         }
+
+        loadTestDetails();
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -77,6 +81,52 @@ const Home: React.FC = () => {
 
     fetchData();
   }, []);
+
+  const loadTestDetails = async () => {
+    try {
+      setLoading(true);
+      console.log('Loading test details...');
+      
+      const response = await axios.get('http://localhost:8000/api/v1/products/test-details', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      console.log('Test details response:', response.data);
+      
+      // Her detay için ürün bilgilerini al
+      const detailsWithProducts = await Promise.all(
+        response.data.sample_details.map(async (detail: ProductDetail) => {
+          try {
+            const productResponse = await axios.get(`http://localhost:8000/api/v1/products/${detail.product_id}`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              }
+            });
+            return {
+              ...detail,
+              product: productResponse.data
+            };
+          } catch (error) {
+            console.error(`Error fetching product ${detail.product_id}:`, error);
+            return detail;
+          }
+        })
+      );
+      
+      setTestDetails(detailsWithProducts);
+    } catch (error) {
+      console.error('Test verileri yüklenirken hata:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Error response:', error.response?.data);
+        console.error('Error status:', error.response?.status);
+      }
+      setTestDetails([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
@@ -195,10 +245,10 @@ const Home: React.FC = () => {
 
   const formatPrice = (price: number | null) => {
     if (price === null) return 'Fiyat bilgisi yok';
-    return price.toLocaleString('tr-TR', {
+    return new Intl.NumberFormat('tr-TR', {
       style: 'currency',
-      currency: 'TRY',
-    });
+      currency: 'TRY'
+    }).format(price);
   };
 
   const handleProductClick = async (product: Product) => {

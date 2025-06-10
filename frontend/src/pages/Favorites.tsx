@@ -15,7 +15,13 @@ interface ProductWithDetails extends ProductDetail {
   product?: {
     id: number;
     name: string;
+    description: string;
     image_url?: string;
+    category_id: number;
+    created_at: string;
+    updated_at: string;
+    details: ProductDetail[];
+    is_favorite?: boolean;
   };
 }
 
@@ -40,9 +46,13 @@ const Favorites: React.FC = () => {
       
       console.log('Test details response:', response.data);
       
+      // Sadece favori olan detayları filtrele
+      const favoriteDetails = response.data.sample_details.filter((detail: ProductDetail) => detail.is_favorite);
+      console.log('Favorite details:', favoriteDetails);
+      
       // Her detay için ürün bilgilerini al
       const detailsWithProducts = await Promise.all(
-        response.data.sample_details.map(async (detail: ProductDetail) => {
+        favoriteDetails.map(async (detail: ProductDetail) => {
           try {
             const productResponse = await axios.get(`http://localhost:8000/api/v1/products/${detail.product_id}`, {
               headers: {

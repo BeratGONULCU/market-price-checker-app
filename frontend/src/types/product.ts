@@ -21,6 +21,7 @@ export interface ProductDetail {
   created_at: string;
   updated_at: string;
   market?: Market;
+  product?: Product;
 }
 
 export interface Market {
