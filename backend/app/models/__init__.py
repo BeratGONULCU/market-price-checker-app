@@ -1,40 +1,34 @@
-from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, ForeignKey, Text, Table
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from .base import Base
-
-# Import all models
+from .base_class import Base
 from .user import User
 from .category import Category
-from .comment import Comment
-from .favorite import Favorite
 from .market import Market
-from .notification import Notification
-from .price_alert import PriceAlert
-from .price_history import PriceHistory
 from .product import Product
 from .product_detail import ProductDetail
+from .comment import Comment
 from .rating import Rating
+from .price_history import PriceHistory
+from .price_alert import PriceAlert
 from .search_history import SearchHistory
-from .shopping_list import ShoppingList
 from .shopping_list_item import ShoppingListItem
+from .notification import Notification
 from .user_setting import UserSetting
+from .favorite import Favorite
 
 # Export all models
 __all__ = [
+    "Base",
     "User",
     "Category",
-    "Comment",
-    "Favorite",
     "Market",
-    "Notification",
-    "PriceAlert",
-    "PriceHistory",
     "Product",
     "ProductDetail",
+    "Comment",
     "Rating",
+    "PriceHistory",
+    "PriceAlert",
     "SearchHistory",
-    "ShoppingList",
     "ShoppingListItem",
-    "UserSetting"
+    "Notification",
+    "UserSetting",
+    "Favorite"
 ]

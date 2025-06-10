@@ -15,7 +15,9 @@ class CommentBase(BaseModel):
     content: str
 
 class FavoriteBase(BaseModel):
-    pass
+    user_id: int
+    product_id: int
+    market_id: int
 
 class MarketBase(BaseModel):
     name: str
@@ -24,6 +26,7 @@ class MarketBase(BaseModel):
     open_hours: str
     latitude: float
     longitude: float
+    logo_url: Optional[str] = None
 
 class NotificationBase(BaseModel):
     title: str
@@ -43,9 +46,14 @@ class ProductBase(BaseModel):
     description: Optional[str] = None
     brand: Optional[str] = None
     barcode: Optional[str] = None
+    image_url: Optional[str] = None
+    category_id: int
 
 class ProductDetailBase(BaseModel):
+    product_id: int
+    market_id: int
     price: float
+    url: Optional[str] = None
     expiration_date: Optional[datetime] = None
     calories: Optional[float] = None
 
@@ -74,7 +82,7 @@ class CommentCreate(CommentBase):
     product_id: int
 
 class FavoriteCreate(FavoriteBase):
-    product_id: int
+    pass
 
 class MarketCreate(MarketBase):
     pass
@@ -93,8 +101,7 @@ class ProductCreate(ProductBase):
     category_ids: Optional[List[int]] = None
 
 class ProductDetailCreate(ProductDetailBase):
-    product_id: int
-    market_id: int
+    pass
 
 class RatingCreate(RatingBase):
     product_id: int
@@ -111,15 +118,16 @@ class UserSettingCreate(UserSettingBase):
 # Response schemas
 class User(UserBase):
     id: int
+    is_active: bool
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class Category(CategoryBase):
     id: int
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class Comment(CommentBase):
     id: int
@@ -129,21 +137,19 @@ class Comment(CommentBase):
     updated_at: Optional[datetime] = None
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class Favorite(FavoriteBase):
     id: int
-    user_id: int
-    product_id: int
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class Market(MarketBase):
     id: int
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class Notification(NotificationBase):
     id: int
@@ -153,7 +159,7 @@ class Notification(NotificationBase):
     read_at: Optional[datetime] = None
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class PriceAlert(PriceAlertBase):
     id: int
@@ -163,7 +169,7 @@ class PriceAlert(PriceAlertBase):
     last_checked: Optional[datetime] = None
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class PriceHistory(PriceHistoryBase):
     id: int
@@ -172,23 +178,24 @@ class PriceHistory(PriceHistoryBase):
     recorded_at: datetime
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class Product(ProductBase):
     id: int
+    details: List[ProductDetail]
+    category: Category
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class ProductDetail(ProductDetailBase):
     id: int
-    product_id: int
-    market_id: int
+    market: Market
     recorded_at: datetime
     last_updated: Optional[datetime] = None
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class Rating(RatingBase):
     id: int
@@ -197,7 +204,7 @@ class Rating(RatingBase):
     created_at: datetime
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class SearchHistory(SearchHistoryBase):
     id: int
@@ -205,7 +212,7 @@ class SearchHistory(SearchHistoryBase):
     searched_at: datetime
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class ShoppingListItem(ShoppingListItemBase):
     id: int
@@ -213,11 +220,18 @@ class ShoppingListItem(ShoppingListItemBase):
     product_id: int
     
     class Config:
-        from_attributes = True
+        orm_mode = True
 
 class UserSetting(UserSettingBase):
     id: int
     user_id: int
     
     class Config:
-        from_attributes = True 
+        orm_mode = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None 

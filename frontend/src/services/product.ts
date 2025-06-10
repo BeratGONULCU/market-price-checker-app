@@ -14,15 +14,16 @@ export interface Product {
 }
 
 export interface ProductDetail {
-  id: number;
-  product_id: number;
-  market_id: number;
-  price: number;
-  expiration_date: string | null;
-  calories: number | null;
-  created_at: string;
-  updated_at: string;
-  market: Market;
+    id: number;
+    product_id: number;
+    market_id: number;
+    price: number;
+    expiration_date: string | null;
+    calories: number | null;
+    created_at: string;
+    updated_at: string;
+    is_favorite: boolean;
+    market: Market;
 }
 
 export interface ProductPrice {

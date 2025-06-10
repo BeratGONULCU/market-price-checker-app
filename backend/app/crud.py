@@ -87,25 +87,32 @@ def create_comment(db: Session, comment: schemas.CommentCreate, user_id: int):
 def get_favorite(db: Session, favorite_id: int):
     return db.query(models.Favorite).filter(models.Favorite.id == favorite_id).first()
 
-def get_user_favorites(db: Session, user_id: int, skip: int = 0, limit: int = 100):
+def get_favorites_by_user(db: Session, user_id: int, skip: int = 0, limit: int = 100):
     return db.query(models.Favorite).filter(models.Favorite.user_id == user_id).offset(skip).limit(limit).all()
 
-def create_favorite(db: Session, favorite: schemas.FavoriteCreate, user_id: int):
-    db_favorite = models.Favorite(**favorite.dict(), user_id=user_id)
-    db.add(db_favorite)
-    db.commit()
-    db.refresh(db_favorite)
-    return db_favorite
-
-def delete_favorite(db: Session, favorite_id: int, user_id: int):
-    db_favorite = db.query(models.Favorite).filter(
-        models.Favorite.id == favorite_id,
-        models.Favorite.user_id == user_id
+def get_favorite_by_user_and_product(db: Session, user_id: int, product_id: int):
+    return db.query(models.Favorite).filter(
+        models.Favorite.user_id == user_id,
+        models.Favorite.product_id == product_id
     ).first()
-    if db_favorite:
-        db.delete(db_favorite)
+
+def create_favorite(db: Session, favorite: schemas.FavoriteCreate):
+    try:
+        db_favorite = models.Favorite(**favorite.dict())
+        db.add(db_favorite)
         db.commit()
-    return db_favorite
+        db.refresh(db_favorite)
+        return db_favorite
+    except Exception as e:
+        db.rollback()
+        raise e
+
+def delete_favorite(db: Session, favorite_id: int):
+    favorite = db.query(models.Favorite).filter(models.Favorite.id == favorite_id).first()
+    if favorite:
+        db.delete(favorite)
+        db.commit()
+    return favorite
 
 # Market CRUD
 def get_market(db: Session, market_id: int):
@@ -192,17 +199,18 @@ def create_price_history(db: Session, history: schemas.PriceHistoryCreate):
 # Product CRUD
 def get_product(db: Session, product_id: int):
     return db.query(models.Product).options(
-        joinedload(models.Product.details).joinedload(models.ProductDetail.market)
+        joinedload(models.Product.details).joinedload(models.ProductDetail.market),
+        joinedload(models.Product.categories)
     ).filter(models.Product.id == product_id).first()
 
 def get_products(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.Product).offset(skip).limit(limit).all()
+    return db.query(models.Product).options(
+        joinedload(models.Product.details).joinedload(models.ProductDetail.market),
+        joinedload(models.Product.categories)
+    ).offset(skip).limit(limit).all()
 
 def create_product(db: Session, product: schemas.ProductCreate):
-    db_product = models.Product(**product.dict(exclude={'category_ids'}))
-    if product.category_ids:
-        categories = db.query(models.Category).filter(models.Category.id.in_(product.category_ids)).all()
-        db_product.categories = categories
+    db_product = models.Product(**product.dict())
     db.add(db_product)
     db.commit()
     db.refresh(db_product)

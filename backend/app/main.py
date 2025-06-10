@@ -17,24 +17,34 @@ from app.schemas import (
     ShoppingListItemCreate, UserSetting, UserSettingBase, UserSettingCreate
 )
 from app.database import SessionLocal, engine
+from app.db.base import Base
+from app.api.endpoints import products, categories, auth, markets, favorites
+
+# Create tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# CORS ayarları
+# Set all CORS enabled origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend'in çalıştığı adres
+    allow_origins=["http://localhost:3000"],  # Frontend URL
     allow_credentials=True,
-    allow_methods=["*"],  # Tüm HTTP metodlarına izin ver
-    allow_headers=["*"],  # Tüm headerlara izin ver
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+    expose_headers=["*"]  # Exposes all headers
 )
 
 # Include routers
-app.include_router(auth_router, prefix="/auth", tags=["auth"])
+app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(products.router, prefix="/api/v1/products", tags=["products"])
+app.include_router(categories.router, prefix="/api/categories", tags=["categories"])
+app.include_router(markets.router, prefix="/api/markets", tags=["markets"])
+app.include_router(favorites.router, prefix="/api/favorites", tags=["favorites"])
 
 # Dependency
 def get_db():
@@ -256,5 +266,5 @@ def update_user_setting(setting_id: int, setting: UserSettingBase, user_id: int,
     return {"message": "User setting updated successfully"}
 
 @app.get("/")
-def root():
+def read_root():
     return {"message": "Welcome to Market Price Comparison API"}
