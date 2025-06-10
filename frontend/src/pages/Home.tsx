@@ -26,12 +26,14 @@ import {
   Toolbar,
   Button,
 } from '@mui/material';
-import { FavoriteBorder, CompareArrows, Close, Logout } from '@mui/icons-material';
+import { FavoriteBorder, CompareArrows, Close, Favorite, Logout } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { productService, Product, ProductDetail } from '../services/product';
 import { categoryService, Category } from '../services/category';
 import { authService } from '../services/auth';
 import { Market } from '../types/market';
+import ProductCard from '../components/ProductCard';
+import axios from 'axios';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -43,6 +45,7 @@ const Home: React.FC = () => {
   const [sortBy, setSortBy] = useState('name');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [openModal, setOpenModal] = useState(false);
+  const [favorites, setFavorites] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     const fetchData = async () => {
@@ -56,6 +59,15 @@ const Home: React.FC = () => {
         console.log('Fetched Categories:', categoriesData);
         setProducts(productsData);
         setCategories(categoriesData);
+
+        // Favorileri yükle
+        try {
+          const response = await axios.get('/api/favorites');
+          const favoriteIds = new Set<number>(response.data.map((f: { product_id: number }) => f.product_id));
+          setFavorites(favoriteIds);
+        } catch (error) {
+          console.error('Favoriler yüklenirken hata:', error);
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -241,6 +253,53 @@ const Home: React.FC = () => {
     );
   };
 
+  const toggleFavorite = async (product: Product, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      if (favorites.has(product.id)) {
+        // Favoriden çıkar
+        console.log('Removing favorite for product:', product.id);
+        await axios.delete(`/api/favorites/${product.id}`);
+        setFavorites(prev => {
+          const newFavorites = new Set(prev);
+          newFavorites.delete(product.id);
+          return newFavorites;
+        });
+        console.log('Ürün favorilerden çıkarıldı');
+      } else {
+        // Favorilere ekle
+        console.log('Adding favorite for product:', product.id);
+        const lowestPriceDetail = product.details.reduce((prev, current) => 
+          (prev.price < current.price) ? prev : current
+        );
+        
+        console.log('Selected market:', lowestPriceDetail.market);
+        
+        const response = await axios.post(`/api/favorites/${product.id}`, {
+          market_id: lowestPriceDetail.market_id
+        }, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log('Favorite response:', response.data);
+        
+        setFavorites(prev => {
+          const newFavorites = new Set(prev);
+          newFavorites.add(product.id);
+          return newFavorites;
+        });
+        console.log('Ürün favorilere eklendi');
+      }
+    } catch (error: any) {
+      console.error('Favori işlemi sırasında hata:', error.response?.data || error.message);
+      if (error.response?.data?.detail) {
+        console.error('Hata detayı:', error.response.data.detail);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
@@ -357,12 +416,9 @@ const Home: React.FC = () => {
                         </Typography>
                         <Box>
                           <IconButton
-                            onClick={(e: React.MouseEvent) => {
-                              e.stopPropagation();
-                              // Favori ekleme/çıkarma işlemi
-                            }}
+                            onClick={(e: React.MouseEvent) => toggleFavorite(product, e)}
                           >
-                            <FavoriteBorder />
+                            {favorites.has(product.id) ? <Favorite /> : <FavoriteBorder />}
                           </IconButton>
                           <IconButton
                             onClick={(e: React.MouseEvent) => {

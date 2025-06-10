@@ -1,17 +1,16 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, Boolean, ForeignKey, DateTime, func
 from sqlalchemy.orm import relationship
-from datetime import datetime
-from .base import BaseModel
+from app.db.base_class import Base
 
-class UserSetting(BaseModel):
+class UserSetting(Base):
     __tablename__ = "user_settings"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    setting_key = Column(String(50), nullable=False)
-    value = Column(String(255))
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    email_notifications = Column(Boolean, default=True)
+    price_alerts = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
     user = relationship("User", back_populates="settings") 

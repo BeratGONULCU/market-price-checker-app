@@ -14,12 +14,6 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
-    // Remove trailing slash from URLs
-    if (config.url && config.url.endsWith('/')) {
-      config.url = config.url.slice(0, -1);
-    }
-    
     return config;
   },
   (error) => {

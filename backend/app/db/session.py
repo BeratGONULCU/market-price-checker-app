@@ -4,10 +4,10 @@ from sqlalchemy.orm import sessionmaker
 from app.core.config import settings
 
 # Debug: Print the database URL
-print("Database URL:", settings.SQLALCHEMY_DATABASE_URL)
+print("Database URL:", settings.get_database_url)
 
 # SQLAlchemy database engine
-engine = create_engine(settings.SQLALCHEMY_DATABASE_URL, echo=True)
+engine = create_engine(settings.get_database_url)
 
 # SessionLocal class for database sessions
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

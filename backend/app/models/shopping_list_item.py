@@ -1,19 +1,17 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, ForeignKey, DateTime, func
 from sqlalchemy.orm import relationship
-from datetime import datetime
-from .base import BaseModel
+from app.db.base_class import Base
 
-class ShoppingListItem(BaseModel):
+class ShoppingListItem(Base):
     __tablename__ = "shopping_list_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    shopping_list_id = Column(Integer, ForeignKey("shopping_lists.id"))
-    product_id = Column(Integer, ForeignKey("products.id"))
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     quantity = Column(Integer, default=1)
-    notes = Column(String(255))
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    shopping_list = relationship("ShoppingList", back_populates="items")
+    user = relationship("User", back_populates="shopping_list_items")
     product = relationship("Product", back_populates="shopping_list_items") 

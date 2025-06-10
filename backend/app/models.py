@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Foreig
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
+from datetime import datetime
 
 # Association table for product_categories
 product_categories = Table(
@@ -18,6 +19,9 @@ class User(Base):
     name = Column(String)
     email = Column(String, unique=True, index=True)
     password = Column(String)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     comments = relationship("Comment", back_populates="user")
@@ -33,8 +37,10 @@ class Category(Base):
     __tablename__ = "categories"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    description = Column(String)
+    name = Column(String, index=True)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     products = relationship("Product", secondary=product_categories, back_populates="categories")
@@ -59,25 +65,28 @@ class Favorite(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     product_id = Column(Integer, ForeignKey("products.id"))
+    market_id = Column(Integer, ForeignKey("markets.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     user = relationship("User", back_populates="favorites")
     product = relationship("Product", back_populates="favorites")
+    market = relationship("Market", back_populates="favorites")
 
 class Market(Base):
     __tablename__ = "markets"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    address = Column(String)
-    phone = Column(String)
-    open_hours = Column(String)
-    latitude = Column(Float)
-    longitude = Column(Float)
+    name = Column(String, index=True)
+    logo_url = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
     product_details = relationship("ProductDetail", back_populates="market")
     price_history = relationship("PriceHistory", back_populates="market")
+    favorites = relationship("Favorite", back_populates="market")
 
 class Notification(Base):
     __tablename__ = "notifications"
@@ -127,13 +136,15 @@ class Product(Base):
     __tablename__ = "products"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
-    description = Column(Text)
-    brand = Column(String)
-    barcode = Column(String)
+    name = Column(String, index=True)
+    description = Column(Text, nullable=True)
+    image_url = Column(String, nullable=True)
+    category_id = Column(Integer, ForeignKey("categories.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    categories = relationship("Category", secondary=product_categories, back_populates="products")
+    category = relationship("Category", back_populates="products")
     comments = relationship("Comment", back_populates="product")
     favorites = relationship("Favorite", back_populates="product")
     price_alerts = relationship("PriceAlert", back_populates="product")
@@ -149,8 +160,9 @@ class ProductDetail(Base):
     product_id = Column(Integer, ForeignKey("products.id"))
     market_id = Column(Integer, ForeignKey("markets.id"))
     price = Column(Float)
-    recorded_at = Column(DateTime(timezone=True), server_default=func.now())
-    last_updated = Column(DateTime(timezone=True), onupdate=func.now())
+    url = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     expiration_date = Column(DateTime(timezone=True))
     calories = Column(Float)
     

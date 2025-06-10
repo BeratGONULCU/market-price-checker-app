@@ -1,26 +1,18 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Table, DateTime
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, func
 from sqlalchemy.orm import relationship
-from datetime import datetime
-from .base import BaseModel
+from app.db.base_class import Base
 
-class Category(BaseModel):
+class Category(Base):
     __tablename__ = "categories"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False)
+    name = Column(String(255), nullable=False)
     description = Column(Text)
-    parent_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    parent_id = Column(Integer, ForeignKey("categories.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    parent = relationship("Category", remote_side=[id], backref="subcategories")
-    products = relationship("Product", secondary="product_categories", back_populates="categories")
-
-# Association table for many-to-many relationship between products and categories
-product_categories = Table(
-    "product_categories",
-    BaseModel.metadata,
-    Column("product_id", Integer, ForeignKey("products.id"), primary_key=True),
-    Column("category_id", Integer, ForeignKey("categories.id"), primary_key=True)
-) 
+    parent = relationship("Category", remote_side=[id], back_populates="children")
+    children = relationship("Category", back_populates="parent")
+    products = relationship("Product", secondary="product_category", back_populates="categories")
