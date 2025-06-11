@@ -22,11 +22,8 @@ class FavoriteBase(BaseModel):
 class MarketBase(BaseModel):
     name: str
     address: str
-    phone: str
-    open_hours: str
-    latitude: float
-    longitude: float
-    logo_url: Optional[str] = None
+    phone: Optional[str] = None
+    image_url: Optional[str] = None
 
 class NotificationBase(BaseModel):
     title: str
@@ -147,9 +144,11 @@ class Favorite(FavoriteBase):
 
 class Market(MarketBase):
     id: int
-    
+    created_at: datetime
+    updated_at: datetime
+
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Notification(NotificationBase):
     id: int

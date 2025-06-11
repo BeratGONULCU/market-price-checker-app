@@ -83,6 +83,22 @@ const Favorites: React.FC = () => {
     }
   };
 
+  const handleFavoriteClick = async (detailId: number) => {
+    try {
+      // Favori durumunu değiştir
+      await axios.post(`http://localhost:8000/api/v1/favorites/toggle/${detailId}`, {}, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      
+      // Ürünleri yeniden yükle
+      loadTestDetails();
+    } catch (error) {
+      console.error('Favori durumu değiştirilirken hata:', error);
+    }
+  };
+
   if (loading) {
     return (
       <Container>
@@ -145,7 +161,7 @@ const Favorites: React.FC = () => {
                     </Button>
                     <Button
                       color="primary"
-                      onClick={() => console.log('Favori tıklandı:', detail.id)}
+                      onClick={() => handleFavoriteClick(detail.id)}
                     >
                       {detail.is_favorite ? <Favorite color="error" /> : <FavoriteBorder />}
                     </Button>

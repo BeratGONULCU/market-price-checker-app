@@ -33,7 +33,6 @@ import { productService, Product, ProductDetail } from '../services/product';
 import { categoryService, Category } from '../services/category';
 import { authService } from '../services/auth';
 import { Market } from '../types/market';
-import ProductCard from '../components/ProductCard';
 import axios from 'axios';
 
 const Home: React.FC = () => {
@@ -48,6 +47,7 @@ const Home: React.FC = () => {
   const [openModal, setOpenModal] = useState(false);
   const [favorites, setFavorites] = useState<Set<number>>(new Set());
   const [testDetails, setTestDetails] = useState<ProductDetail[]>([]);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -274,7 +274,7 @@ const Home: React.FC = () => {
   };
 
   const getMarketLogo = (market: Market | undefined) => {
-    if (!market?.logo_url) {
+    if (!market?.image_url) {
       return (
         <Box
           sx={{
@@ -296,59 +296,49 @@ const Home: React.FC = () => {
     }
     return (
       <img
-        src={market.logo_url}
+        src={market.image_url}
         alt={market.name}
         style={{ width: 24, height: 24, objectFit: 'contain' }}
       />
     );
   };
 
-  const toggleFavorite = async (product: Product, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleFavoriteToggle = async (detailId: number) => {
     try {
-      if (favorites.has(product.id)) {
-        // Favoriden çıkar
-        console.log('Removing favorite for product:', product.id);
-        await axios.delete(`/api/favorites/${product.id}`);
-        setFavorites(prev => {
-          const newFavorites = new Set(prev);
-          newFavorites.delete(product.id);
-          return newFavorites;
-        });
-        console.log('Ürün favorilerden çıkarıldı');
-      } else {
-        // Favorilere ekle
-        console.log('Adding favorite for product:', product.id);
-        const lowestPriceDetail = product.details.reduce((prev, current) => 
-          (prev.price < current.price) ? prev : current
-        );
-        
-        console.log('Selected market:', lowestPriceDetail.market);
-        
-        const response = await axios.post(`/api/favorites/${product.id}`, {
-          market_id: lowestPriceDetail.market_id
-        }, {
+      await axios.post(
+        `http://localhost:8000/api/v1/favorites/toggle/${detailId}`,
+        {},
+        {
           headers: {
-            'Content-Type': 'application/json'
+            Authorization: `Bearer ${localStorage.getItem('token')}`
           }
-        });
-        
-        console.log('Favorite response:', response.data);
-        
-        setFavorites(prev => {
-          const newFavorites = new Set(prev);
-          newFavorites.add(product.id);
-          return newFavorites;
-        });
-        console.log('Ürün favorilere eklendi');
-      }
-    } catch (error: any) {
-      console.error('Favori işlemi sırasında hata:', error.response?.data || error.message);
-      if (error.response?.data?.detail) {
-        console.error('Hata detayı:', error.response.data.detail);
-      }
+        }
+      );
+  
+      // 1. testDetails içinde güncelle
+      setTestDetails(prev =>
+        prev.map(detail =>
+          detail.id === detailId
+            ? { ...detail, is_favorite: !detail.is_favorite }
+            : detail
+        )
+      );
+  
+      // 2. selectedProduct içinde güncelle
+      setSelectedProduct(prev => {
+        if (!prev) return prev;
+        const updatedDetails = prev.details.map(d =>
+          d.id === detailId ? { ...d, is_favorite: !d.is_favorite } : d
+        );
+        return { ...prev, details: updatedDetails };
+      });
+  
+    } catch (error) {
+      console.error('Favori güncellenemedi:', error);
     }
   };
+  
+  
 
   if (loading) {
     return (
@@ -466,9 +456,16 @@ const Home: React.FC = () => {
                         </Typography>
                         <Box>
                           <IconButton
-                            onClick={(e: React.MouseEvent) => toggleFavorite(product, e)}
+                            onClick={(e: React.MouseEvent) => {
+                              e.stopPropagation();
+                              if (product.details && product.details.length > 0) {
+                                handleFavoriteToggle(product.details[0].id);
+                              }
+                            }}
                           >
-                            {favorites.has(product.id) ? <Favorite /> : <FavoriteBorder />}
+                            {product.details && product.details.length > 0 && product.details[0].is_favorite 
+                              ? <Favorite color="error" /> 
+                              : <FavoriteBorder />}
                           </IconButton>
                           <IconButton
                             onClick={(e: React.MouseEvent) => {
@@ -619,12 +616,43 @@ const Home: React.FC = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
+
+              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={<ShoppingCart />}
+                >
+                  Sepete Ekle
+                </Button>
+                <Button
+                  color="primary"
+                  onClick={() => {
+                    if (selectedProduct && selectedProduct.details && selectedProduct.details.length > 0) {
+                      handleFavoriteToggle(selectedProduct.details[0].id);
+                    }
+                  }}
+                >
+                  {selectedProduct && selectedProduct.details && selectedProduct.details.length > 0 && selectedProduct.details[0].is_favorite 
+                    ? <Favorite color="error" /> 
+                    : <FavoriteBorder />}
+                </Button>
+              </Box>
             </>
           )}
         </Box>
       </Modal>
     </>
+
+
+
+
   );
+
+
+
 };
 
 export default Home; 
+
+/*                   */

@@ -14,6 +14,7 @@ class Market(Base):
     open_hours = Column(String(100))
     latitude = Column(Float)
     longitude = Column(Float)
+    image_url = Column(String(255))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

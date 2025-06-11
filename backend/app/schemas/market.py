@@ -10,6 +10,7 @@ class MarketBase(BaseModel):
     open_hours: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    image_url: Optional[str] = None
 
 class MarketCreate(MarketBase):
     pass

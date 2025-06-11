@@ -1,8 +1,10 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
+import os
 
 from app.api import api_router
 from app.api.auth import router as auth_router
@@ -23,10 +25,16 @@ from app.api.endpoints import products, categories, auth, markets, favorites
 # Create tables
 Base.metadata.create_all(bind=engine)
 
+# Create static directories if they don't exist
+os.makedirs("static/markets", exist_ok=True)
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Set all CORS enabled origins
 app.add_middleware(

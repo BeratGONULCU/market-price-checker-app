@@ -79,7 +79,9 @@ class Market(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    logo_url = Column(String, nullable=True)
+    address = Column(String)
+    phone = Column(String, nullable=True)
+    image_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
