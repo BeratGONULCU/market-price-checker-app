@@ -1,4 +1,5 @@
 import api from './api';
+import { Market } from '../types/market';
 
 export interface Product {
   id: number;
@@ -18,6 +19,7 @@ export interface ProductDetail {
     product_id: number;
     market_id: number;
     price: number;
+    unit: string;
     expiration_date: string | null;
     calories: number | null;
     created_at: string;
@@ -42,14 +44,6 @@ export interface Category {
   name: string;
   description: string;
   parent_id: number | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Market {
-  id: number;
-  name: string;
-  address: string;
   created_at: string;
   updated_at: string;
 }

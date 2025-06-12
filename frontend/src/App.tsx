@@ -12,6 +12,8 @@ import Compare from './pages/Compare';
 import Markets from './pages/Markets';
 import Categories from './pages/Categories';
 import MarketDetail from './pages/MarketDetail';
+import ProductDetail from './pages/ProductDetail';
+import ShoppingList from './pages/ShoppingList';
 import PrivateRoute from './components/PrivateRoute';
 import Cart from './pages/Cart';
 
@@ -31,6 +33,8 @@ const App: React.FC = () => {
           <Route path="/markets" element={<Markets />} />
           <Route path="/categories" element={<Categories />} />
           <Route path="/markets/:id" element={<MarketDetail />} />
+          <Route path="/products/:id" element={<ProductDetail />} />
+          <Route path="/shopping-list" element={<PrivateRoute><ShoppingList /></PrivateRoute>} />
           <Route path="/favorites" element={<PrivateRoute><Favorites /></PrivateRoute>} />
           <Route path="/cart" element={<PrivateRoute><Cart /></PrivateRoute>} />
         </Routes>

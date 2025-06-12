@@ -1,174 +1,377 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
+  Typography,
   Grid,
   Card,
   CardContent,
-  Typography,
+  CardMedia,
+  IconButton,
   Box,
   Button,
-  AppBar,
-  Toolbar,
-  IconButton,
-  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Alert,
+  Snackbar
 } from '@mui/material';
 import {
-  ArrowBack,
-  LocationOn,
-  Phone,
-  AccessTime,
-  Directions,
+  Favorite as FavoriteIcon,
+  FavoriteBorder as FavoriteBorderIcon,
+  Add as AddIcon
 } from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
+import { Product, ProductDetail } from '../types/product';
 import { Market } from '../types/market';
+import { ShoppingList } from '../types/shoppingList';
+import axios from 'axios';
 
 const MarketDetail: React.FC = () => {
-  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [market, setMarket] = useState<Market | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [favorites, setFavorites] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [quantity, setQuantity] = useState(1);
+  const [selectedList, setSelectedList] = useState<number | null>(null);
+  const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error'
+  });
 
   useEffect(() => {
-    const loadMarket = async () => {
+    const fetchMarketDetails = async () => {
       try {
-        setLoading(true);
-        const response = await axios.get(`http://localhost:8000/api/v1/markets/${id}`, {
+        const response = await axios.get(`http://localhost:8000/api/v1/markets/${id}`);
+        setMarket(response.data);
+      } catch (err) {
+        setError('Market detayları yüklenirken bir hata oluştu');
+        console.error('Error fetching market details:', err);
+      }
+    };
+
+    const fetchProducts = async () => {
+      try {
+        const response = await axios.get(`http://localhost:8000/api/v1/markets/${id}/products`);
+        setProducts(response.data);
+      } catch (err) {
+        setError('Ürünler yüklenirken bir hata oluştu');
+        console.error('Error fetching products:', err);
+      }
+    };
+
+    const fetchFavorites = async () => {
+      try {
+        const response = await axios.get('http://localhost:8000/api/v1/favorites', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`
           }
         });
-        console.log('Market data:', response.data);
-        setMarket(response.data);
-      } catch (error) {
-        console.error('Market yüklenirken hata:', error);
-      } finally {
-        setLoading(false);
+        setFavorites(response.data.map((fav: any) => fav.product_id));
+      } catch (err) {
+        console.error('Error fetching favorites:', err);
       }
     };
 
-    loadMarket();
+    const fetchShoppingLists = async () => {
+      try {
+        const response = await axios.get('http://localhost:8000/api/v1/shopping-lists', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        setShoppingLists(response.data);
+        if (response.data.length > 0) {
+          setSelectedList(response.data[0].id);
+        }
+      } catch (err) {
+        console.error('Error fetching shopping lists:', err);
+      }
+    };
+
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([
+        fetchMarketDetails(),
+        fetchProducts(),
+        fetchFavorites(),
+        fetchShoppingLists()
+      ]);
+      setLoading(false);
+    };
+
+    loadData();
   }, [id]);
 
-  const handleGetDirections = () => {
-    if (market?.latitude && market?.longitude) {
-      const url = `https://www.google.com/maps/dir/?api=1&destination=${market.latitude},${market.longitude}`;
-      window.open(url, '_blank');
+  const handleToggleFavorite = async (productId: number) => {
+    try {
+      const isFavorite = favorites.includes(productId);
+      const method = isFavorite ? 'DELETE' : 'POST';
+      await axios({
+        method,
+        url: `http://localhost:8000/api/v1/favorites/${productId}`,
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      setFavorites(prev =>
+        isFavorite
+          ? prev.filter(id => id !== productId)
+          : [...prev, productId]
+      );
+
+      setSnackbar({
+        open: true,
+        message: isFavorite ? 'Ürün favorilerden çıkarıldı' : 'Ürün favorilere eklendi',
+        severity: 'success'
+      });
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+      setSnackbar({
+        open: true,
+        message: 'Favori işlemi sırasında bir hata oluştu',
+        severity: 'error'
+      });
     }
   };
 
-  if (loading) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const handleAddToList = async (productId: number) => {
+    if (!selectedList) return;
 
-  if (!market) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <Typography variant="h6" color="text.secondary">
-          Market bulunamadı
-        </Typography>
-      </Box>
-    );
-  }
+    try {
+      await axios.post(`http://localhost:8000/api/v1/shopping-lists/${selectedList}/items`, {
+        product_id: productId,
+        quantity: quantity
+      }, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      setSnackbar({
+        open: true,
+        message: 'Ürün alışveriş listesine eklendi',
+        severity: 'success'
+      });
+      setOpenDialog(false);
+    } catch (err) {
+      console.error('Error adding to list:', err);
+      setSnackbar({
+        open: true,
+        message: 'Ürün listeye eklenirken bir hata oluştu',
+        severity: 'error'
+      });
+    }
+  };
+
+  if (loading) return <Typography>Yükleniyor...</Typography>;
+  if (error) return <Typography color="error">{error}</Typography>;
+  if (!market) return <Typography>Market bulunamadı</Typography>;
 
   return (
-    <>
-      <AppBar position="static">
-        <Toolbar>
-          <IconButton
-            edge="start"
-            color="inherit"
-            onClick={() => navigate(-1)}
-            sx={{ mr: 2 }}
-          >
-            <ArrowBack />
-          </IconButton>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Market Detayı
-          </Typography>
-        </Toolbar>
-      </AppBar>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Market Bilgileri */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" gutterBottom>
+          {market.name}
+        </Typography>
+        <Typography variant="body1" color="text.secondary" paragraph>
+          {market.description}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Adres: {market.address}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Telefon: {market.phone}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Çalışma Saatleri: {market.open_hours}
+        </Typography>
+      </Box>
 
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Grid container spacing={3}>
-          {/* Market Bilgileri */}
-          <Grid item xs={12} md={4}>
-            <Card>
-              <Box
+      {/* Ürünler */}
+      <Typography variant="h5" gutterBottom>
+        Ürünler
+      </Typography>
+      <Grid container spacing={3}>
+        {products.map((product) => (
+          <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>
+            <Card
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                position: 'relative',
+                '&:hover': {
+                  boxShadow: 6,
+                  cursor: 'pointer'
+                }
+              }}
+              onClick={() => navigate(`/products/${product.id}`)}
+            >
+              <CardMedia
+                component="img"
+                height="200"
+                image={product.image_url || '/placeholder.png'}
+                alt={product.name}
                 sx={{
-                  height: 200,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: '#f5f5f5',
-                  padding: '1rem'
+                  objectFit: 'contain',
+                  bgcolor: 'grey.100',
+                  p: 2
                 }}
-              >
-                <img
-                  src={market.image_url || '/placeholder.png'}
-                  alt={market.name}
-                  style={{
-                    maxWidth: '100%',
-                    maxHeight: '100%',
-                    objectFit: 'contain'
+              />
+              <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                <Typography
+                  gutterBottom
+                  variant="h6"
+                  component="div"
+                  sx={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    height: '3.6em',
+                    lineHeight: '1.2em'
                   }}
-                />
-              </Box>
-              <CardContent>
-                <Typography variant="h5" gutterBottom>
-                  {market.name}
+                >
+                  {product.name}
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <LocationOn color="action" sx={{ mr: 1 }} />
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    height: '2.4em',
+                    lineHeight: '1.2em',
+                    mb: 1
+                  }}
+                >
+                  {product.description}
+                </Typography>
+                <Box sx={{ mt: 'auto' }}>
+                  <Typography variant="h6" color="primary" gutterBottom>
+                    {product.details[0]?.price.toLocaleString('tr-TR', {
+                      style: 'currency',
+                      currency: 'TRY'
+                    })}
+                  </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {market.address}
+                    {product.details[0]?.unit}
                   </Typography>
                 </Box>
-                {market.phone && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <Phone color="action" sx={{ mr: 1 }} />
-                    <Typography variant="body2" color="text.secondary">
-                      {market.phone}
-                    </Typography>
-                  </Box>
-                )}
-                {market.open_hours && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <AccessTime color="action" sx={{ mr: 1 }} />
-                    <Typography variant="body2" color="text.secondary">
-                      {market.open_hours}
-                    </Typography>
-                  </Box>
-                )}
-                <Button
-                  variant="contained"
-                  startIcon={<Directions />}
-                  fullWidth
-                  onClick={handleGetDirections}
-                  disabled={!market.latitude || !market.longitude}
-                >
-                  Yol Tarifi Al
-                </Button>
               </CardContent>
+              <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 1 }}>
+                <IconButton
+                  sx={{
+                    bgcolor: 'background.paper',
+                    '&:hover': {
+                      bgcolor: 'action.hover'
+                    }
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedProduct(product);
+                    setOpenDialog(true);
+                  }}
+                >
+                  <AddIcon />
+                </IconButton>
+                <IconButton
+                  sx={{
+                    bgcolor: 'background.paper',
+                    '&:hover': {
+                      bgcolor: 'action.hover'
+                    }
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleFavorite(product.id);
+                  }}
+                >
+                  {favorites.includes(product.id) ? (
+                    <FavoriteIcon color="error" />
+                  ) : (
+                    <FavoriteBorderIcon />
+                  )}
+                </IconButton>
+              </Box>
             </Card>
           </Grid>
+        ))}
+      </Grid>
 
-          {/* Ürün Listesi - Bu kısım daha sonra eklenecek */}
-          <Grid item xs={12} md={8}>
-            <Typography variant="h6" gutterBottom>
-              Ürünler
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Ürün listesi yakında eklenecek...
-            </Typography>
-          </Grid>
-        </Grid>
-      </Container>
-    </>
+      {/* Alışveriş Listesine Ekleme Dialog */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
+        <DialogTitle>Alışveriş Listesine Ekle</DialogTitle>
+        <DialogContent>
+          <TextField
+            select
+            fullWidth
+            label="Alışveriş Listesi"
+            value={selectedList || ''}
+            onChange={(e) => setSelectedList(Number(e.target.value))}
+            margin="normal"
+            SelectProps={{
+              native: true
+            }}
+          >
+            {shoppingLists.map((list) => (
+              <option key={list.id} value={list.id}>
+                {list.name}
+              </option>
+            ))}
+          </TextField>
+          <TextField
+            fullWidth
+            label="Miktar"
+            type="number"
+            value={quantity}
+            onChange={(e) => setQuantity(Number(e.target.value))}
+            margin="normal"
+            inputProps={{ min: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)}>İptal</Button>
+          <Button 
+            onClick={() => selectedProduct && handleAddToList(selectedProduct.id)} 
+            variant="contained" 
+            color="primary"
+          >
+            Ekle
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Container>
   );
 };
 

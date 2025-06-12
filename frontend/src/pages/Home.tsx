@@ -580,7 +580,7 @@ const Home: React.FC = () => {
                           >
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                {getMarketLogo(detail.market)}
+                                {getMarketLogo(detail.market as Market)}
                                 {detail.market?.name || 'Bilinmeyen Market'}
                               </Box>
                             </TableCell>

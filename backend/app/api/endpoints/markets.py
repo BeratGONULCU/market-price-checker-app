@@ -4,7 +4,10 @@ from typing import List
 
 from app.db.session import get_db
 from app.models.market import Market
+from app.models.product import Product
+from app.models.product_detail import ProductDetail
 from app.schemas.market import Market as MarketSchema, MarketCreate, MarketUpdate
+from app.schemas.product import Product as ProductSchema
 
 router = APIRouter()
 
@@ -49,4 +52,21 @@ def delete_market(market_id: int, db: Session = Depends(get_db)):
     
     db.delete(db_market)
     db.commit()
-    return db_market 
+    return db_market
+
+@router.get("/{market_id}/products", response_model=List[ProductSchema])
+def get_market_products(market_id: int, db: Session = Depends(get_db)):
+    # Önce market'in var olup olmadığını kontrol et
+    market = db.query(Market).filter(Market.id == market_id).first()
+    if not market:
+        raise HTTPException(status_code=404, detail="Market not found")
+    
+    # Market'teki ürünleri getir
+    products = (
+        db.query(Product)
+        .join(ProductDetail)
+        .filter(ProductDetail.market_id == market_id)
+        .all()
+    )
+    
+    return products 
