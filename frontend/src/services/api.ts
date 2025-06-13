@@ -1,13 +1,13 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api/v1',
+  baseURL: 'http://localhost:8000',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor
+// Request interceptor - her istekte token'ı ekle
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -21,7 +21,7 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor
+// Response interceptor - 401 hatası durumunda logout yap
 api.interceptors.response.use(
   (response) => response,
   (error) => {

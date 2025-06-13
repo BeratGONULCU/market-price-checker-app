@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Container, Grid, Typography, Box, Card, CardContent, CardMedia, Button } from '@mui/material';
+import { Container, Grid, Typography, Box, Card, CardContent, CardMedia, Button, CircularProgress } from '@mui/material';
 import { Favorite, FavoriteBorder, ShoppingCart } from '@mui/icons-material';
-import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import favoriteService from '../services/favorite';
 import { ProductDetail } from '../types/product';
+import { useAuth } from '../contexts/AuthContext';
 
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat('tr-TR', {
@@ -26,74 +28,38 @@ interface ProductWithDetails extends ProductDetail {
 }
 
 const Favorites: React.FC = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [testDetails, setTestDetails] = useState<ProductWithDetails[]>([]);
+  const [favorites, setFavorites] = useState<ProductWithDetails[]>([]);
 
   useEffect(() => {
-    loadTestDetails();
+    if (!user) {
+      navigate('/login', { state: { from: '/favorites' } });
+    }
+  }, [user, navigate]);
+
+  useEffect(() => {
+    loadFavorites();
   }, []);
 
-  const loadTestDetails = async () => {
+  const loadFavorites = async () => {
     try {
       setLoading(true);
-      console.log('Loading test details...');
-      
-      const response = await axios.get('http://localhost:8000/api/v1/products/test-details', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      console.log('Test details response:', response.data);
-      
-      // Sadece favori olan detayları filtrele
-      const favoriteDetails = response.data.sample_details.filter((detail: ProductDetail) => detail.is_favorite);
-      console.log('Favorite details:', favoriteDetails);
-      
-      // Her detay için ürün bilgilerini al
-      const detailsWithProducts = await Promise.all(
-        favoriteDetails.map(async (detail: ProductDetail) => {
-          try {
-            const productResponse = await axios.get(`http://localhost:8000/api/v1/products/${detail.product_id}`, {
-              headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
-              }
-            });
-            return {
-              ...detail,
-              product: productResponse.data
-            };
-          } catch (error) {
-            console.error(`Error fetching product ${detail.product_id}:`, error);
-            return detail;
-          }
-        })
-      );
-      
-      setTestDetails(detailsWithProducts);
+      const favoritesData = await favoriteService.getFavorites();
+      setFavorites(favoritesData);
     } catch (error) {
-      console.error('Test verileri yüklenirken hata:', error);
-      if (axios.isAxiosError(error)) {
-        console.error('Error response:', error.response?.data);
-        console.error('Error status:', error.response?.status);
-      }
-      setTestDetails([]);
+      console.error('Favoriler yüklenirken hata:', error);
+      setFavorites([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFavoriteClick = async (detailId: number) => {
+  const handleFavoriteClick = async (productId: number, marketId: number) => {
     try {
-      // Favori durumunu değiştir
-      await axios.post(`http://localhost:8000/api/v1/favorites/toggle/${detailId}`, {}, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      
-      // Ürünleri yeniden yükle
-      loadTestDetails();
+      await favoriteService.removeFavorite(productId, marketId);
+      loadFavorites(); // Favorileri yeniden yükle
     } catch (error) {
       console.error('Favori durumu değiştirilirken hata:', error);
     }
@@ -102,68 +68,60 @@ const Favorites: React.FC = () => {
   if (loading) {
     return (
       <Container>
-        <Typography variant="h5" component="h1" gutterBottom>
-          Ürünler
-        </Typography>
-        <Typography>Yükleniyor...</Typography>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+          <CircularProgress />
+        </Box>
       </Container>
     );
   }
 
   return (
     <Container>
-      <Typography variant="h5" component="h1" gutterBottom>
-        Ürünler
+      <Typography variant="h4" component="h1" gutterBottom sx={{ mt: 4, mb: 4 }}>
+        Favorilerim
       </Typography>
-      
-      {testDetails.length === 0 ? (
-        <Typography>Veri bulunamadı.</Typography>
+
+      {favorites.length === 0 ? (
+        <Typography variant="h6" align="center" color="textSecondary">
+          Henüz favori ürününüz bulunmuyor.
+        </Typography>
       ) : (
         <Grid container spacing={3}>
-          {testDetails.map((detail) => (
-            <Grid item xs={12} sm={6} md={4} key={detail.id}>
-              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                {detail.product?.image_url && (
-                  <CardMedia
-                    component="img"
-                    height="200"
-                    image={detail.product.image_url}
-                    alt={detail.product.name || `Ürün ${detail.product_id}`}
-                  />
-                )}
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Typography variant="h6" component="h2" gutterBottom>
-                    {detail.product?.name || `Ürün #${detail.product_id}`}
+          {favorites.map((favorite) => (
+            <Grid item xs={12} sm={6} md={4} key={favorite.id}>
+              <Card>
+                <CardMedia
+                  component="img"
+                  height="200"
+                  image={favorite.product?.image_url || '/placeholder.png'}
+                  alt={favorite.product?.name}
+                  sx={{ objectFit: 'contain', p: 2 }}
+                />
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    {favorite.product?.name}
                   </Typography>
-                  
-                  <Box sx={{ mt: 2 }}>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Market: {detail.market?.name || `Market #${detail.market_id}`}
-                    </Typography>
-                    <Typography variant="h6" color="primary" gutterBottom>
-                      {formatPrice(detail.price)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Kalori: {detail.calories} kcal
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Son Kullanma: {new Date(detail.expiration_date).toLocaleDateString('tr-TR')}
-                    </Typography>
-                  </Box>
+                  <Typography variant="body2" color="textSecondary" paragraph>
+                    {favorite.product?.description}
+                  </Typography>
+                  <Typography variant="h6" color="primary" gutterBottom>
+                    {formatPrice(favorite.price)}
+                  </Typography>
 
                   <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Button
                       variant="contained"
                       color="primary"
                       startIcon={<ShoppingCart />}
+                      onClick={() => navigate(`/products/${favorite.product_id}`)}
                     >
-                      Sepete Ekle
+                      Detayları Gör
                     </Button>
                     <Button
                       color="primary"
-                      onClick={() => handleFavoriteClick(detail.id)}
+                      onClick={() => handleFavoriteClick(favorite.product_id, favorite.market_id)}
                     >
-                      {detail.is_favorite ? <Favorite color="error" /> : <FavoriteBorder />}
+                      <Favorite color="error" />
                     </Button>
                   </Box>
                 </CardContent>

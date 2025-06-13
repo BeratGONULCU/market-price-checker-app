@@ -4,6 +4,7 @@ from datetime import datetime
 from .base import BaseSchema
 from .category import Category
 from .product_detail import ProductDetail
+from .market import Market
 
 class ProductDetailBase(BaseModel):
     product_id: int
@@ -17,6 +18,7 @@ class ProductDetailCreate(ProductDetailBase):
 
 class ProductDetail(ProductDetailBase):
     id: int
+    market: Optional[Market] = None
 
     class Config:
         from_attributes = True

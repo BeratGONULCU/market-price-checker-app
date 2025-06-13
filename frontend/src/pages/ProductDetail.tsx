@@ -41,14 +41,20 @@ import {
   LocalOffer,
   Notifications,
   NotificationsOff,
+  Add as AddIcon,
+  ShoppingCart as ShoppingCartIcon,
+  List as ListIcon
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Product } from '../types/product';
+import type { ProductDetail as ProductDetailType } from '../types/product';
 import { Market } from '../types/market';
 import { ShoppingList } from '../types/shoppingList';
 import { Review } from '../types/review';
 import { useSnackbar } from 'notistack';
+import favoriteService from '../services/favorite';
+import shoppingListService from '../services/shoppingList';
 
 interface PriceHistory {
   date: string;
@@ -73,193 +79,202 @@ const ProductDetail: React.FC = () => {
   const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
   const [showAddToListDialog, setShowAddToListDialog] = useState(false);
   const [shoppingLists, setShoppingLists] = useState<ShoppingList[]>([]);
-  const [selectedListId, setSelectedListId] = useState<number | null>(null);
+  const [selectedList, setSelectedList] = useState<number | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [similarProducts, setSimilarProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [showReviewDialog, setShowReviewDialog] = useState(false);
-  const [newReview, setNewReview] = useState({ rating: 0, content: '' });
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewContent, setReviewContent] = useState('');
   const [priceAlert, setPriceAlert] = useState<PriceAlert | null>(null);
   const [showPriceAlertDialog, setShowPriceAlertDialog] = useState(false);
   const [targetPrice, setTargetPrice] = useState('');
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const { enqueueSnackbar } = useSnackbar();
+  const [openListDialog, setOpenListDialog] = useState(false);
+  const [notes, setNotes] = useState('');
 
-  useEffect(() => {
-    const loadProduct = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get(`http://localhost:8000/api/v1/products/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        setProduct(response.data);
-
-        // Fiyat geçmişini getir
-        try {
-          const historyResponse = await axios.get(`http://localhost:8000/api/v1/products/${id}/price-history`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-          setPriceHistory(historyResponse.data);
-        } catch (error) {
-          console.error('Fiyat geçmişi yüklenirken hata:', error);
-        }
-
-        // Benzer ürünleri getir
-        try {
-          const similarResponse = await axios.get(`http://localhost:8000/api/v1/products/${id}/similar`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-          setSimilarProducts(similarResponse.data);
-        } catch (error) {
-          console.error('Benzer ürünler yüklenirken hata:', error);
-        }
-
-        // Fiyat alarmını getir
-        try {
-          const alertResponse = await axios.get(`http://localhost:8000/api/v1/products/${id}/price-alert`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-          setPriceAlert(alertResponse.data);
-        } catch (error) {
-          console.error('Fiyat alarmı yüklenirken hata:', error);
-        }
-      } catch (error) {
-        console.error('Veri yüklenirken hata:', error);
-        enqueueSnackbar('Ürün bilgileri yüklenirken bir hata oluştu', { variant: 'error' });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProduct();
-  }, [id]);
-
-  useEffect(() => {
-    loadShoppingLists();
-  }, []);
-
-  useEffect(() => {
-    if (product) {
-      loadReviews();
-    }
-  }, [product]);
-
-  const loadShoppingLists = async () => {
+  const fetchProductDetails = async () => {
+    if (!id) return;
+    
     try {
-      const response = await axios.get('http://localhost:8000/api/v1/shopping-lists', {
+      setLoading(true);
+      const response = await axios.get(`http://localhost:8000/api/v1/products/${id}`);
+      console.log('Product Response:', response.data);
+      console.log('Product Details:', response.data.details);
+      setProduct(response.data);
+      
+      // Market detaylarını kontrol et
+      if (response.data.details) {
+        console.log('Market details:', response.data.details.map((detail: ProductDetailType) => ({
+          market_id: detail.market_id,
+          market_name: detail.market?.name,
+          price: detail.price
+        })));
+      }
+
+      // Fiyat geçmişini getir - geçici olarak devre dışı bırakıldı
+      // const historyResponse = await axios.get(`http://localhost:8000/api/v1/products/${id}/price-history`);
+      // setPriceHistory(historyResponse.data);
+
+      // Benzer ürünleri getir
+      const similarResponse = await axios.get(`http://localhost:8000/api/v1/products/${id}/similar`);
+      setSimilarProducts(similarResponse.data);
+
+      // Yorumları getir
+      const reviewsResponse = await axios.get(`http://localhost:8000/api/v1/comments/product/${id}`);
+      setReviews(reviewsResponse.data);
+
+      // Alışveriş listelerini getir
+      const listsResponse = await axios.get('http://localhost:8000/api/v1/shopping-lists', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
       });
-      setShoppingLists(response.data);
-      if (response.data.length > 0) {
-        setSelectedListId(response.data[0].id);
+      setShoppingLists(listsResponse.data);
+      if (listsResponse.data.length > 0) {
+        setSelectedList(listsResponse.data[0].id);
       }
     } catch (error) {
-      console.error('Alışveriş listeleri yüklenirken hata:', error);
-      enqueueSnackbar('Alışveriş listeleri yüklenirken bir hata oluştu', { variant: 'error' });
+      console.error('Error fetching product details:', error);
+      enqueueSnackbar('Ürün detayları yüklenirken bir hata oluştu', { variant: 'error' });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const loadReviews = async () => {
-    try {
-      const response = await axios.get(
-        `http://localhost:8000/api/v1/comments/product/${product?.id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
-      setReviews(response.data);
-    } catch (error) {
-      console.error('Yorumlar yüklenirken hata:', error);
-      enqueueSnackbar('Yorumlar yüklenirken bir hata oluştu', { variant: 'error' });
-    }
-  };
+  useEffect(() => {
+    fetchProductDetails();
+  }, [id]);
 
   const handleToggleFavorite = async () => {
     if (!product) return;
 
     try {
       const isFavorite = product.is_favorite;
-      const endpoint = isFavorite ? 'unfavorite' : 'favorite';
       
-      await axios.post(`http://localhost:8000/api/v1/products/${product.id}/${endpoint}`, {}, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      if (isFavorite) {
+        // En düşük fiyatlı marketi seç
+        const lowestPriceDetail = product.details.reduce((prev, current) => 
+          (prev.price < current.price) ? prev : current
+        );
+        await favoriteService.removeFavorite(product.id, lowestPriceDetail.market_id);
+      } else {
+        // En düşük fiyatlı marketi seç
+        const lowestPriceDetail = product.details.reduce((prev, current) => 
+          (prev.price < current.price) ? prev : current
+        );
+        await favoriteService.addFavorite(product.id, lowestPriceDetail.market_id);
+      }
 
+      // Ürün durumunu güncelle
       setProduct({ ...product, is_favorite: !isFavorite });
+      enqueueSnackbar(
+        isFavorite ? 'Ürün favorilerden çıkarıldı' : 'Ürün favorilere eklendi',
+        { variant: 'success' }
+      );
     } catch (error) {
       console.error('Favori işlemi sırasında hata:', error);
+      enqueueSnackbar('Favori işlemi sırasında bir hata oluştu', { variant: 'error' });
+    }
+  };
+
+  const loadShoppingLists = async () => {
+    try {
+      const lists = await shoppingListService.getShoppingLists();
+      setShoppingLists(lists);
+      if (lists.length > 0) {
+        setSelectedList(lists[0].id);
+      }
+    } catch (error) {
+      console.error('Error loading shopping lists:', error);
     }
   };
 
   const handleAddToList = async () => {
-    if (!selectedListId || !product) return;
-
+    if (!selectedList || !product) return;
     try {
-      const response = await axios.post(
-        `http://localhost:8000/api/v1/shopping-lists/${selectedListId}/items`,
-        {
-          product_id: product.id,
-          quantity: quantity
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
-
-      setShowAddToListDialog(false);
-      setSnackbar({
-        open: true,
-        message: 'Ürün listeye eklendi',
-        severity: 'success'
-      });
+      await shoppingListService.addItemToList(selectedList, product.id, quantity, notes);
+      setOpenListDialog(false);
+      setQuantity(1);
+      setNotes('');
+      setSelectedList(null);
+      enqueueSnackbar('Ürün listeye eklendi', { variant: 'success' });
     } catch (error) {
-      console.error('Ürün listeye eklenirken hata:', error);
-      setSnackbar({
-        open: true,
-        message: 'Ürün listeye eklenirken bir hata oluştu',
-        severity: 'error'
-      });
+      console.error('Error adding item to list:', error);
+      enqueueSnackbar('Ürün listeye eklenirken bir hata oluştu', { variant: 'error' });
     }
+  };
+
+  const handleOpenListDialog = () => {
+    loadShoppingLists();
+    setOpenListDialog(true);
+  };
+
+  const handleCloseListDialog = () => {
+    setOpenListDialog(false);
+    setQuantity(1);
+    setNotes('');
+    setSelectedList(null);
   };
 
   const handleSubmitReview = async () => {
     try {
-      const response = await axios.post(
-        'http://localhost:8000/api/v1/comments',
-        {
-          product_id: product?.id,
-          rating: newReview.rating,
-          content: newReview.content
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
+        const token = localStorage.getItem('token');
+        if (!token) {
+            enqueueSnackbar('Yorum yapmak için giriş yapmalısınız', { variant: 'error' });
+            return;
         }
-      );
-      setReviews([...reviews, response.data]);
-      setNewReview({ rating: 0, content: '' });
-      setShowReviewDialog(false);
-      enqueueSnackbar('Yorumunuz başarıyla eklendi', { variant: 'success' });
-    } catch (error) {
-      console.error('Yorum eklenirken hata:', error);
-      enqueueSnackbar('Yorum eklenirken bir hata oluştu', { variant: 'error' });
+
+        const reviewData = {
+            product_id: product?.id,
+            rating: reviewRating,
+            content: reviewContent
+        };
+
+        console.log('Sending review data:', reviewData);
+        console.log('Request headers:', {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        });
+
+        const response = await axios.post(
+            'http://localhost:8000/api/v1/comments',
+            reviewData,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        console.log('Review response:', response);
+        console.log('Response status:', response.status);
+        console.log('Response data:', response.data);
+
+        if (response.status === 201) {
+            enqueueSnackbar('Yorumunuz başarıyla eklendi', { variant: 'success' });
+            setReviewRating(0);
+            setReviewContent('');
+            setShowReviewDialog(false);
+            // Yorumları yenile
+            fetchProductDetails();
+        }
+    } catch (error: any) {
+        console.error('Error submitting review:', error);
+        console.error('Error details:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            headers: error.response?.headers
+        });
+        
+        if (error.response) {
+            console.error('Error response:', error.response.data);
+            enqueueSnackbar(error.response.data.detail || 'Yorum eklenirken bir hata oluştu', { variant: 'error' });
+        } else {
+            enqueueSnackbar('Yorum eklenirken bir hata oluştu', { variant: 'error' });
+        }
     }
   };
 
@@ -275,55 +290,44 @@ const ProductDetail: React.FC = () => {
           }
         });
         setPriceAlert(null);
-        setSnackbar({
-          open: true,
-          message: 'Fiyat alarmı kaldırıldı',
-          severity: 'success'
-        });
+        enqueueSnackbar('Fiyat alarmı kaldırıldı', { variant: 'success' });
       } else {
         // Yeni alarm oluştur
         setShowPriceAlertDialog(true);
       }
     } catch (error) {
       console.error('Fiyat alarmı işlemi sırasında hata:', error);
-      setSnackbar({
-        open: true,
-        message: 'İşlem sırasında bir hata oluştu',
-        severity: 'error'
-      });
+      enqueueSnackbar('İşlem sırasında bir hata oluştu', { variant: 'error' });
     }
   };
 
   const handleCreatePriceAlert = async () => {
     try {
-      const response = await axios.post(`http://localhost:8000/api/v1/products/${id}/price-alert`, {
-        target_price: parseFloat(targetPrice)
-      }, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+      const response = await axios.post(
+        `http://localhost:8000/api/v1/products/${product?.id}/price-alert`,
+        {
+          target_price: targetPrice
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
         }
-      });
+      );
+
       setPriceAlert(response.data);
       setShowPriceAlertDialog(false);
       setTargetPrice('');
-      setSnackbar({
-        open: true,
-        message: 'Fiyat alarmı oluşturuldu',
-        severity: 'success'
-      });
+      enqueueSnackbar('Fiyat alarmı başarıyla oluşturuldu', { variant: 'success' });
     } catch (error) {
-      console.error('Fiyat alarmı oluşturulurken hata:', error);
-      setSnackbar({
-        open: true,
-        message: 'Fiyat alarmı oluşturulurken bir hata oluştu',
-        severity: 'error'
-      });
+      console.error('Error creating price alert:', error);
+      enqueueSnackbar('Fiyat alarmı oluşturulurken bir hata oluştu', { variant: 'error' });
     }
   };
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
         <CircularProgress />
       </Box>
     );
@@ -331,11 +335,9 @@ const ProductDetail: React.FC = () => {
 
   if (!product) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
-        <Typography variant="h6" color="text.secondary">
+      <Typography variant="h6" align="center">
           Ürün bulunamadı
         </Typography>
-      </Box>
     );
   }
 
@@ -422,15 +424,31 @@ const ProductDetail: React.FC = () => {
                     )}
                   </Box>
                 ))}
-                <Button
-                  variant="contained"
-                  color="primary"
-                  startIcon={<AddShoppingCart />}
-                  onClick={() => setShowAddToListDialog(true)}
-                  sx={{ mt: 2 }}
-                >
-                  Alışveriş Listesine Ekle
-                </Button>
+                <Box display="flex" gap={2} mt={2}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<ShoppingCartIcon />}
+                    onClick={() => setShowAddToListDialog(true)}
+                  >
+                    Listeye Ekle
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="primary"
+                    startIcon={<ListIcon />}
+                    onClick={handleOpenListDialog}
+                  >
+                    Listeye Ekle
+                  </Button>
+                  <IconButton
+                    color="primary"
+                    onClick={handleToggleFavorite}
+                    sx={{ ml: 'auto' }}
+                  >
+                    {product.is_favorite ? <Favorite /> : <FavoriteBorder />}
+                  </IconButton>
+                </Box>
               </CardContent>
             </Card>
           </Grid>
@@ -449,11 +467,24 @@ const ProductDetail: React.FC = () => {
                         <Avatar src={detail.market?.logo_url} />
                       </ListItemAvatar>
                       <ListItemText
-                        primary={detail.market?.name}
-                        secondary={detail.price.toLocaleString('tr-TR', {
-                          style: 'currency',
-                          currency: 'TRY'
-                        })}
+                        primary={
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'space-between',
+                            width: '100%'
+                          }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                              {detail.market?.name || 'Bilinmeyen Market'}
+                            </Typography>
+                            <Typography variant="subtitle1" color="primary" sx={{ mr: 3.75 }}>
+                              {detail.price.toLocaleString('tr-TR', {
+                                style: 'currency',
+                                currency: 'TRY'
+                              })}
+                            </Typography>
+                          </Box>
+                        }
                       />
                       <Button
                         variant="outlined"
@@ -534,67 +565,57 @@ const ProductDetail: React.FC = () => {
           </Grid>
 
           {/* Benzer Ürünler */}
-          <Grid item xs={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
+          {similarProducts.length > 0 && (
+            <Box mt={6}>
+              <Typography variant="h5" gutterBottom>
                   Benzer Ürünler
                 </Typography>
-                <Grid container spacing={2}>
+              <Grid container spacing={3}>
                   {similarProducts.map((similarProduct) => (
                     <Grid item xs={12} sm={6} md={4} key={similarProduct.id}>
-                      <Card
-                        sx={{
-                          cursor: 'pointer',
-                          '&:hover': {
-                            boxShadow: 6,
-                            transform: 'translateY(-4px)',
-                            transition: 'all 0.3s ease-in-out'
-                          }
-                        }}
-                        onClick={() => navigate(`/products/${similarProduct.id}`)}
-                      >
+                    <Card>
+                      <CardContent>
                         <Box
+                          component="img"
+                          src={similarProduct.image_url || '/placeholder.png'}
+                          alt={similarProduct.name}
                           sx={{
-                            height: 140,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#f5f5f5',
-                            padding: '1rem'
-                          }}
-                        >
-                          <img
-                            src={similarProduct.image_url || '/placeholder.png'}
-                            alt={similarProduct.name}
-                            style={{
-                              maxWidth: '100%',
-                              maxHeight: '100%',
-                              objectFit: 'contain'
+                            width: '100%',
+                            height: 200,
+                            objectFit: 'contain',
+                            mb: 2
                             }}
                           />
-                        </Box>
-                        <CardContent>
-                          <Typography variant="h6" noWrap>
+                        <Typography variant="h6" gutterBottom>
                             {similarProduct.name}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary" noWrap>
+                        <Typography variant="body2" color="textSecondary" paragraph>
                             {similarProduct.description}
                           </Typography>
+                        {similarProduct.details && similarProduct.details.length > 0 && (
                           <Typography variant="h6" color="primary">
-                            {similarProduct.details[0]?.price.toLocaleString('tr-TR', {
+                            {new Intl.NumberFormat('tr-TR', {
                               style: 'currency',
                               currency: 'TRY'
-                            })}
+                            }).format(similarProduct.details[0].price)}
                           </Typography>
+                        )}
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          fullWidth
+                          sx={{ mt: 2 }}
+                          onClick={() => navigate(`/products/${similarProduct.id}`)}
+                        >
+                          Detayları Gör
+                        </Button>
                         </CardContent>
                       </Card>
                     </Grid>
                   ))}
                 </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
+            </Box>
+          )}
         </Grid>
       </Container>
 
@@ -605,8 +626,8 @@ const ProductDetail: React.FC = () => {
           <FormControl fullWidth sx={{ mt: 2 }}>
             <InputLabel>Liste Seçin</InputLabel>
             <Select
-              value={selectedListId || ''}
-              onChange={(e) => setSelectedListId(Number(e.target.value))}
+              value={selectedList || ''}
+              onChange={(e) => setSelectedList(Number(e.target.value))}
               label="Liste Seçin"
             >
               {shoppingLists.map((list) => (
@@ -627,7 +648,7 @@ const ProductDetail: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowAddToListDialog(false)}>İptal</Button>
-          <Button onClick={handleAddToList} variant="contained">
+          <Button onClick={() => handleAddToList()} variant="contained">
             Ekle
           </Button>
         </DialogActions>
@@ -640,8 +661,8 @@ const ProductDetail: React.FC = () => {
           <Box sx={{ mt: 2 }}>
             <Typography component="legend">Puanınız</Typography>
             <Rating
-              value={newReview.rating}
-              onChange={(_, value) => setNewReview({ ...newReview, rating: value || 0 })}
+              value={reviewRating}
+              onChange={(_, value) => setReviewRating(value || 0)}
               precision={0.5}
             />
           </Box>
@@ -650,8 +671,8 @@ const ProductDetail: React.FC = () => {
             multiline
             rows={4}
             label="Yorumunuz"
-            value={newReview.content}
-            onChange={(e) => setNewReview({ ...newReview, content: e.target.value })}
+            value={reviewContent}
+            onChange={(e) => setReviewContent(e.target.value)}
             sx={{ mt: 2 }}
           />
         </DialogContent>
@@ -660,7 +681,7 @@ const ProductDetail: React.FC = () => {
           <Button
             onClick={handleSubmitReview}
             variant="contained"
-            disabled={newReview.rating === 0}
+            disabled={reviewRating === 0}
           >
             Gönder
           </Button>
@@ -695,20 +716,53 @@ const ProductDetail: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Bildirim Snackbar'ı */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      {/* Listeye Ekle Dialog */}
+      <Dialog open={openListDialog} onClose={handleCloseListDialog}>
+        <DialogTitle>Listeye Ekle</DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Liste Seçin</InputLabel>
+            <Select
+              value={selectedList || ''}
+              onChange={(e) => setSelectedList(Number(e.target.value))}
+            >
+              {shoppingLists.map((list) => (
+                <MenuItem key={list.id} value={list.id}>
+                  {list.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            margin="normal"
+            label="Miktar"
+            type="number"
+            fullWidth
+            value={quantity}
+            onChange={(e) => setQuantity(Number(e.target.value))}
+            inputProps={{ min: 1 }}
+          />
+          <TextField
+            margin="normal"
+            label="Notlar"
+            multiline
+            rows={2}
+            fullWidth
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseListDialog}>İptal</Button>
+          <Button
+            onClick={handleAddToList}
+            color="primary"
+            disabled={!selectedList || quantity < 1}
+          >
+            Ekle
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };

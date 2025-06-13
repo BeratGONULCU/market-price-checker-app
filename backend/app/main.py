@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 import os
+import logging
 
 from app.api import api_router
 from app.api.auth import router as auth_router
@@ -20,7 +21,9 @@ from app.schemas import (
 )
 from app.database import SessionLocal, engine
 from app.db.base import Base
-from app.api.endpoints import products, categories, auth, markets, favorites
+from app.api.endpoints import products, categories, auth, markets, favorites, reviews, users
+from fastapi.middleware.cors import CORSMiddleware
+
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -28,31 +31,52 @@ Base.metadata.create_all(bind=engine)
 # Create static directories if they don't exist
 os.makedirs("static/markets", exist_ok=True)
 
+# Logging ayarları
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    title="Market Price Comparison API",
+    description="API for comparing product prices across different markets",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
+
+# CORS ayarları
+origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  #  ["*"] 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"]
+)
+
+
+
+# API router'ı ekle
+app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Set all CORS enabled origins
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-    expose_headers=["*"]  # Exposes all headers
-)
-
-# Include routers
-app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
-app.include_router(api_router, prefix=settings.API_V1_STR)
+# Include routers - Tüm router'ları /api/v1 prefix'i altında topluyorum
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(products.router, prefix="/api/v1/products", tags=["products"])
-app.include_router(categories.router, prefix="/api/categories", tags=["categories"])
-app.include_router(markets.router, prefix="/api/markets", tags=["markets"])
-app.include_router(favorites.router, prefix="/api/favorites", tags=["favorites"])
+app.include_router(categories.router, prefix="/api/v1/categories", tags=["categories"])
+app.include_router(markets.router, prefix="/api/v1/markets", tags=["markets"])
+app.include_router(favorites.router, prefix="/api/v1/favorites", tags=["favorites"])
+app.include_router(reviews.router, prefix="/api/v1/comments", tags=["comments"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 
 # Dependency
 def get_db():
@@ -274,5 +298,5 @@ def update_user_setting(setting_id: int, setting: UserSettingBase, user_id: int,
     return {"message": "User setting updated successfully"}
 
 @app.get("/")
-def read_root():
+async def root():
     return {"message": "Welcome to Market Price Comparison API"}

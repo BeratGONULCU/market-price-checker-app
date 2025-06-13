@@ -35,7 +35,7 @@ class Settings(BaseSettings):
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
 
     # JWT settings
-    SECRET_KEY: str = secrets.token_urlsafe(32)
+    SECRET_KEY: str = "your-super-secret-key-here"  # Sabit bir değer kullanıyoruz
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 days
 

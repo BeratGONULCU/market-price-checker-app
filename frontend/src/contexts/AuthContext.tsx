@@ -1,79 +1,71 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
-import { User } from '../types';
+import authService from '../services/auth';
+
+interface User {
+  id: number;
+  email: string;
+  name: string;
+  is_active: boolean;
+  is_superuser: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
 
 interface AuthContextType {
   user: User | null;
-  isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  loading: boolean;
+  login: (token: string) => Promise<void>;
   logout: () => void;
-  register: (email: string, password: string, name: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          const response = await axios.get('/api/v1/users/me');
-          console.log('User data:', response.data);
-          setUser(response.data);
-          setIsAuthenticated(true);
-        } catch (error) {
-          console.error('Auth check error:', error);
-          localStorage.removeItem('token');
-          delete axios.defaults.headers.common['Authorization'];
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      }
-    };
-
-    checkAuth();
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetchUser();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const fetchUser = async () => {
     try {
-      const response = await axios.post('/api/v1/auth/login', { email, password });
-      const { access_token, user } = response.data;
-      console.log('Login response:', response.data);
-      localStorage.setItem('token', access_token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-      setUser(user);
-      setIsAuthenticated(true);
+      const userData = await authService.getCurrentUser();
+      setUser(userData);
     } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+      console.error('Error fetching user:', error);
+      localStorage.removeItem('token'); // Token geçersizse sil
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const login = async (token: string) => {
+    localStorage.setItem('token', token);
+    await fetchUser();
   };
 
   const logout = () => {
     localStorage.removeItem('token');
-    delete axios.defaults.headers.common['Authorization'];
     setUser(null);
-    setIsAuthenticated(false);
   };
 
-  const register = async (email: string, password: string, name: string) => {
-    try {
-      await axios.post('/api/v1/auth/register', { email, password, name });
-      await login(email, password);
-    } catch (error) {
-      console.error('Register error:', error);
-      throw error;
-    }
+  const value = {
+    user,
+    loading,
+    login,
+    logout
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, register }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };

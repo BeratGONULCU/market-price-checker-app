@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 import logging
+from sqlalchemy import or_
 
 from app.db.session import get_db
 from app.models.product import Product
@@ -273,4 +274,90 @@ def toggle_favorite(
         return product_detail
     except Exception as e:
         logging.error(f"Error in toggle_favorite: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{product_id}/similar", response_model=List[ProductSchema])
+def get_similar_products(
+    product_id: int,
+    limit: int = 5,
+    db: Session = Depends(get_db)
+):
+    """
+    Belirli bir ürüne benzer ürünleri getir.
+    Benzerlik kriterleri:
+    1. Aynı kategoriye sahip olma
+    2. Benzer fiyat aralığında olma (±%20)
+    3. Benzer markaya sahip olma (varsa)
+    4. Benzer isim/anahtar kelimeler içerme
+    """
+    try:
+        # Önce mevcut ürünü bul
+        current_product = db.query(Product).filter(Product.id == product_id).first()
+        if not current_product:
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        # Ürünün ortalama fiyatını hesapla
+        avg_price = 0
+        if current_product.details:
+            prices = [detail.price for detail in current_product.details if detail.price is not None]
+            if prices:
+                avg_price = sum(prices) / len(prices)
+
+        # Fiyat aralığını belirle (±%20)
+        min_price = avg_price * 0.8 if avg_price > 0 else 0
+        max_price = avg_price * 1.2 if avg_price > 0 else float('inf')
+
+        # Benzer ürünleri bul
+        query = (
+            db.query(Product)
+            .filter(
+                Product.category_id == current_product.category_id,
+                Product.id != product_id  # Mevcut ürünü hariç tut
+            )
+            .options(
+                joinedload(Product.details).joinedload(ProductDetail.market)
+            )
+        )
+
+        # Fiyat filtresi ekle
+        if avg_price > 0:
+            query = query.join(ProductDetail).filter(
+                ProductDetail.price >= min_price,
+                ProductDetail.price <= max_price
+            )
+
+        # Marka filtresi ekle (eğer ürünün markası varsa)
+        if current_product.brand:
+            query = query.filter(Product.brand == current_product.brand)
+
+        # İsim benzerliği için anahtar kelimeleri ayır
+        keywords = current_product.name.lower().split()
+        if keywords:
+            # En az bir anahtar kelimeyi içeren ürünleri bul
+            name_conditions = [Product.name.ilike(f"%{keyword}%") for keyword in keywords]
+            query = query.filter(or_(*name_conditions))
+
+        # Sonuçları sırala ve limit uygula
+        similar_products = query.limit(limit).all()
+
+        # Eğer yeterli benzer ürün bulunamazsa, sadece kategori bazlı arama yap
+        if len(similar_products) < limit:
+            additional_products = (
+                db.query(Product)
+                .filter(
+                    Product.category_id == current_product.category_id,
+                    Product.id != product_id,
+                    ~Product.id.in_([p.id for p in similar_products])  # Zaten bulunan ürünleri hariç tut
+                )
+                .options(
+                    joinedload(Product.details).joinedload(ProductDetail.market)
+                )
+                .limit(limit - len(similar_products))
+                .all()
+            )
+            similar_products.extend(additional_products)
+
+        return similar_products
+    except Exception as e:
+        logging.error(f"Error in get_similar_products: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) 

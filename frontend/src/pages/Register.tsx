@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
@@ -11,7 +11,7 @@ import {
   Link,
   Paper,
 } from '@mui/material';
-import { authService } from '../services/auth';
+import authService from '../services/auth';
 
 const validationSchema = yup.object({
   name: yup

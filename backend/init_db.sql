@@ -136,11 +136,13 @@ CREATE TABLE IF NOT EXISTS price_history (
 -- Create ratings table
 CREATE TABLE IF NOT EXISTS ratings (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER,
-    product_id INTEGER,
-    rating INTEGER,
-    comment TEXT,
-    created_at TIMESTAMP
+    user_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    rating DOUBLE PRECISION NOT NULL,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
 
 -- Create search_history table
@@ -383,4 +385,44 @@ CREATE TRIGGER update_favorites_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 ALTER TABLE products ADD COLUMN market_id INTEGER;
-ALTER TABLE products ADD CONSTRAINT fk_products_market FOREIGN KEY (market_id) REFERENCES markets(id); 
+ALTER TABLE products ADD CONSTRAINT fk_products_market FOREIGN KEY (market_id) REFERENCES markets(id);
+
+-- Drop ratings table
+DROP TABLE IF EXISTS ratings CASCADE;
+
+-- Drop product_category table
+DROP TABLE IF EXISTS product_category CASCADE;
+
+-- Create notification type enum
+CREATE TYPE notification_type AS ENUM ('price_alert', 'system', 'favorite', 'comment');
+
+-- Modify notifications table to use enum
+ALTER TABLE notifications 
+ALTER COLUMN type TYPE notification_type USING type::notification_type;
+
+-- Revert notification type enum
+ALTER TABLE notifications 
+ALTER COLUMN type TYPE character varying;
+
+DROP TYPE IF EXISTS notification_type;
+
+-- Recreate ratings table
+CREATE TABLE IF NOT EXISTS ratings (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    rating DOUBLE PRECISION NOT NULL,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+-- Recreate product_category table
+CREATE TABLE IF NOT EXISTS product_category (
+    product_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    PRIMARY KEY (product_id, category_id),
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+); 

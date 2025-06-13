@@ -1,49 +1,79 @@
 import api from './api';
 
-interface LoginCredentials {
+interface LoginRequest {
   email: string;
   password: string;
 }
 
-interface RegisterData {
+interface RegisterRequest {
+  email: string;
+  password: string;
   name: string;
-  email: string;
-  password: string;
 }
 
-export const authService = {
-  async login(credentials: LoginCredentials) {
-    const formData = new FormData();
-    formData.append('username', credentials.email);
-    formData.append('password', credentials.password);
-    
-    const response = await api.post('/auth/token', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    
-    if (response.data.access_token) {
-      localStorage.setItem('token', response.data.access_token);
+interface AuthResponse {
+  access_token: string;
+  token_type: string;
+}
+
+interface UserResponse {
+  id: number;
+  email: string;
+  name: string;
+  is_active: boolean;
+  is_superuser: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
+const authService = {
+  async login(data: LoginRequest): Promise<AuthResponse> {
+    try {
+      const response = await api.post<AuthResponse>('/api/v1/auth/login', data);
+      return response.data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
     }
-    return response.data;
   },
 
-  async register(data: RegisterData) {
-    const response = await api.post('/auth/register', data);
-    return response.data;
+  async register(data: RegisterRequest): Promise<UserResponse> {
+    try {
+      const response = await api.post<UserResponse>('/api/v1/auth/register', data);
+      return response.data;
+    } catch (error) {
+      console.error('Register error:', error);
+      throw error;
+    }
+  },
+
+  async getCurrentUser(): Promise<UserResponse> {
+    try {
+      const response = await api.get<UserResponse>('/api/v1/auth/me');
+      return response.data;
+    } catch (error) {
+      console.error('Get current user error:', error);
+      throw error;
+    }
+  },
+
+  async updateProfile(data: Partial<RegisterRequest>): Promise<UserResponse> {
+    try {
+      const response = await api.put<UserResponse>('/api/v1/auth/me', data);
+      return response.data;
+    } catch (error) {
+      console.error('Update profile error:', error);
+      throw error;
+    }
   },
 
   logout() {
     localStorage.removeItem('token');
   },
 
-  getCurrentUser: async () => {
-    const response = await api.get('/auth/me');
-    return response.data;
-  },
-
   isAuthenticated() {
     return !!localStorage.getItem('token');
   },
-}; 
+};
+
+export default authService; 

@@ -7,7 +7,6 @@ from fastapi.security import OAuth2PasswordBearer, HTTPBearer, HTTPAuthorization
 from app.core.config import settings
 
 # JWT ayarları
-SECRET_KEY = "your-secret-key-here"  # Güvenli bir secret key kullanın
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -34,7 +33,6 @@ def create_access_token(
     to_encode = {"exp": expire, "sub": str(subject)}
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
-
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -43,10 +41,11 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     )
     try:
         token = credentials.credentials
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
     return user_id
+

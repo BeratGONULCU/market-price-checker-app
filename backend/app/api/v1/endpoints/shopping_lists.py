@@ -20,69 +20,61 @@ from app.models.user import User
 
 router = APIRouter()
 
-@router.post("/", response_model=ShoppingListResponse)
+@router.post("/", response_model=ShoppingList)
 def create_shopping_list(
     *,
     db: Session = Depends(deps.get_db),
     shopping_list_in: ShoppingListCreate,
     current_user: User = Depends(deps.get_current_user)
-):
+) -> ShoppingList:
     """
     Yeni bir alışveriş listesi oluştur.
     """
     shopping_list = crud_shopping_list.create_shopping_list(
-        db=db,
-        obj_in=shopping_list_in,
-        user_id=current_user.id
+        db=db, obj_in=shopping_list_in, user_id=current_user.id
     )
     return shopping_list
 
-@router.get("/", response_model=List[ShoppingListResponse])
+@router.get("/", response_model=List[ShoppingList])
 def get_shopping_lists(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_user),
     skip: int = 0,
     limit: int = 100
-):
+) -> List[ShoppingList]:
     """
     Kullanıcının alışveriş listelerini getir.
     """
     shopping_lists = crud_shopping_list.get_user_shopping_lists(
-        db=db,
-        user_id=current_user.id,
-        skip=skip,
-        limit=limit
+        db=db, user_id=current_user.id, skip=skip, limit=limit
     )
     return shopping_lists
 
-@router.get("/{shopping_list_id}", response_model=ShoppingListResponse)
+@router.get("/{shopping_list_id}", response_model=ShoppingList)
 def get_shopping_list(
     *,
     db: Session = Depends(deps.get_db),
     shopping_list_id: int,
-    current_user = Depends(deps.get_current_user)
-):
+    current_user: User = Depends(deps.get_current_user)
+) -> ShoppingList:
     """
     Belirli bir alışveriş listesini getir.
     """
-    shopping_list = crud_shopping_list.get_shopping_list(
-        db=db,
-        shopping_list_id=shopping_list_id,
-        user_id=current_user.id
-    )
+    shopping_list = crud_shopping_list.get_shopping_list(db=db, shopping_list_id=shopping_list_id)
     if not shopping_list:
         raise HTTPException(status_code=404, detail="Alışveriş listesi bulunamadı")
+    if shopping_list.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Bu alışveriş listesine erişim yetkiniz yok")
     return shopping_list
 
-@router.post("/{shopping_list_id}/items", response_model=ShoppingListResponse)
-def add_item_to_shopping_list(
+@router.post("/{shopping_list_id}/items", response_model=ShoppingListItem)
+def add_shopping_list_item(
     *,
     db: Session = Depends(deps.get_db),
     shopping_list_id: int,
-    product_id: int,
-    quantity: int = 1,
+    item_in: ShoppingListItemCreate,
     current_user: User = Depends(deps.get_current_user)
-):
+) -> ShoppingListItem:
     """
     Alışveriş listesine ürün ekle.
     """
@@ -90,11 +82,11 @@ def add_item_to_shopping_list(
     if not shopping_list:
         raise HTTPException(status_code=404, detail="Alışveriş listesi bulunamadı")
     if shopping_list.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Bu listeye ürün ekleme yetkiniz yok")
-    shopping_list = crud_shopping_list.add_item_to_shopping_list(
-        db=db, shopping_list_id=shopping_list_id, product_id=product_id, quantity=quantity
+        raise HTTPException(status_code=403, detail="Bu alışveriş listesine ürün ekleme yetkiniz yok")
+    item = crud_shopping_list.add_shopping_list_item(
+        db=db, shopping_list_id=shopping_list_id, obj_in=item_in
     )
-    return shopping_list
+    return item
 
 @router.put("/items/{item_id}", response_model=ShoppingListItemResponse)
 def update_shopping_list_item(
@@ -130,37 +122,24 @@ def update_shopping_list_item(
     )
     return item
 
-@router.delete("/items/{item_id}")
-def delete_shopping_list_item(
+@router.delete("/{shopping_list_id}/items/{item_id}")
+def remove_shopping_list_item(
     *,
     db: Session = Depends(deps.get_db),
+    shopping_list_id: int,
     item_id: int,
-    current_user = Depends(deps.get_current_user)
+    current_user: User = Depends(deps.get_current_user)
 ):
     """
-    Alışveriş listesinden bir ürünü sil.
+    Alışveriş listesinden ürün kaldır.
     """
-    item = crud_shopping_list.get_shopping_list_item(
-        db=db,
-        item_id=item_id
-    )
-    if not item:
-        raise HTTPException(status_code=404, detail="Ürün bulunamadı")
-    
-    # Kullanıcının bu listeye erişim yetkisi var mı kontrol et
-    shopping_list = crud_shopping_list.get_shopping_list(
-        db=db,
-        shopping_list_id=item.shopping_list_id,
-        user_id=current_user.id
-    )
+    shopping_list = crud_shopping_list.get_shopping_list(db=db, shopping_list_id=shopping_list_id)
     if not shopping_list:
-        raise HTTPException(status_code=403, detail="Bu işlem için yetkiniz yok")
-    
-    crud_shopping_list.delete_shopping_list_item(
-        db=db,
-        item_id=item_id
-    )
-    return {"message": "Ürün başarıyla silindi"}
+        raise HTTPException(status_code=404, detail="Alışveriş listesi bulunamadı")
+    if shopping_list.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Bu alışveriş listesinden ürün kaldırma yetkiniz yok")
+    crud_shopping_list.remove_shopping_list_item(db=db, item_id=item_id)
+    return {"message": "Ürün alışveriş listesinden kaldırıldı"}
 
 @router.get("/{shopping_list_id}/market-comparison", response_model=List[MarketComparisonResponse])
 def get_market_comparison(
@@ -283,14 +262,14 @@ def share_shopping_list(
     share_url = f"http://localhost:3000/shopping-lists/shared/{share_token}"
     return {"share_url": share_url}
 
-@router.put("/{shopping_list_id}", response_model=ShoppingListResponse)
+@router.put("/{shopping_list_id}", response_model=ShoppingList)
 def update_shopping_list(
     *,
     db: Session = Depends(deps.get_db),
     shopping_list_id: int,
     shopping_list_in: ShoppingListUpdate,
     current_user: User = Depends(deps.get_current_user)
-):
+) -> ShoppingList:
     """
     Bir alışveriş listesini güncelle.
     """
@@ -298,13 +277,13 @@ def update_shopping_list(
     if not shopping_list:
         raise HTTPException(status_code=404, detail="Alışveriş listesi bulunamadı")
     if shopping_list.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Bu listeyi güncelleme yetkiniz yok")
+        raise HTTPException(status_code=403, detail="Bu alışveriş listesini düzenleme yetkiniz yok")
     shopping_list = crud_shopping_list.update_shopping_list(
         db=db, db_obj=shopping_list, obj_in=shopping_list_in
     )
     return shopping_list
 
-@router.delete("/{shopping_list_id}", response_model=ShoppingListResponse)
+@router.delete("/{shopping_list_id}")
 def delete_shopping_list(
     *,
     db: Session = Depends(deps.get_db),
@@ -318,6 +297,6 @@ def delete_shopping_list(
     if not shopping_list:
         raise HTTPException(status_code=404, detail="Alışveriş listesi bulunamadı")
     if shopping_list.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Bu listeyi silme yetkiniz yok")
-    shopping_list = crud_shopping_list.delete_shopping_list(db=db, shopping_list_id=shopping_list_id)
-    return shopping_list 
+        raise HTTPException(status_code=403, detail="Bu alışveriş listesini silme yetkiniz yok")
+    crud_shopping_list.delete_shopping_list(db=db, shopping_list_id=shopping_list_id)
+    return {"message": "Alışveriş listesi silindi"} 

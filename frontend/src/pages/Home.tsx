@@ -29,11 +29,13 @@ import {
 } from '@mui/material';
 import { FavoriteBorder, CompareArrows, Close, Favorite, Logout, ShoppingCart } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { productService, Product, ProductDetail } from '../services/product';
 import { categoryService, Category } from '../services/category';
-import { authService } from '../services/auth';
+import authService from '../services/auth';
 import { Market } from '../types/market';
 import axios from 'axios';
+import favoriteService from '../services/favorite';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -64,8 +66,8 @@ const Home: React.FC = () => {
 
         // Favorileri yükle
         try {
-          const response = await axios.get('/api/favorites');
-          const favoriteIds = new Set<number>(response.data.map((f: { product_id: number }) => f.product_id));
+          const favoritesData = await favoriteService.getFavorites();
+          const favoriteIds = new Set<number>(favoritesData.map((f: { product_id: number }) => f.product_id));
           setFavorites(favoriteIds);
         } catch (error) {
           console.error('Favoriler yüklenirken hata:', error);

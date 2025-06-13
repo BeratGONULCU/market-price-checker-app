@@ -81,5 +81,10 @@ export const productService = {
   async getProductDetails(productId: number): Promise<ProductDetail[]> {
     const response = await api.get(`/products/${productId}/details/`);
     return response.data;
+  },
+
+  async getSimilarProducts(productId: number): Promise<Product[]> {
+    const response = await api.get(`/products/${productId}/similar`);
+    return response.data;
   }
 }; 

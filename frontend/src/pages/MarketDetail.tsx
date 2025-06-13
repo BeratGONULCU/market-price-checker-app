@@ -177,7 +177,7 @@ const MarketDetail: React.FC = () => {
   if (error) return <Typography color="error">{error}</Typography>;
   if (!market) return <Typography>Market bulunamadı</Typography>;
 
-  return (
+    return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       {/* Market Bilgileri */}
       <Box sx={{ mb: 4 }}>
@@ -201,8 +201,8 @@ const MarketDetail: React.FC = () => {
       {/* Ürünler */}
       <Typography variant="h5" gutterBottom>
         Ürünler
-      </Typography>
-      <Grid container spacing={3}>
+          </Typography>
+        <Grid container spacing={3}>
         {products.map((product) => (
           <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>
             <Card
@@ -242,8 +242,8 @@ const MarketDetail: React.FC = () => {
                     WebkitBoxOrient: 'vertical',
                     height: '3.6em',
                     lineHeight: '1.2em'
-                  }}
-                >
+                }}
+              >
                   {product.name}
                 </Typography>
                 <Typography
@@ -312,7 +312,7 @@ const MarketDetail: React.FC = () => {
             </Card>
           </Grid>
         ))}
-      </Grid>
+          </Grid>
 
       {/* Alışveriş Listesine Ekleme Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
@@ -371,7 +371,7 @@ const MarketDetail: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Container>
+      </Container>
   );
 };
 

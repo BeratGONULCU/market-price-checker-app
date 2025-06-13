@@ -2,23 +2,24 @@ from typing import Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
 
-class ReviewBase(BaseModel):
+class CommentBase(BaseModel):
     content: str
-    rating: float = Field(..., ge=1, le=5)  # 1-5 arası puan
-
-class ReviewCreate(ReviewBase):
+    rating: float = Field(..., ge=1, le=5)
     product_id: int
 
-class ReviewUpdate(ReviewBase):
+class CommentCreate(CommentBase):
     pass
 
-class Review(ReviewBase):
+class CommentUpdate(BaseModel):
+    content: Optional[str] = None
+    rating: Optional[float] = Field(None, ge=1, le=5)
+
+class Comment(CommentBase):
     id: int
     user_id: int
-    product_id: int
+    user_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-    user_name: str
 
     class Config:
-        from_attributes = True 
+        orm_mode = True 

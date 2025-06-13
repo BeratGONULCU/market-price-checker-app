@@ -4,20 +4,23 @@ from datetime import datetime
 
 class ShoppingListItemBase(BaseModel):
     product_id: int
-    quantity: int
-    is_checked: bool = False
+    quantity: int = 1
+    notes: Optional[str] = None
 
 class ShoppingListItemCreate(ShoppingListItemBase):
     pass
 
-class ShoppingListItemResponse(ShoppingListItemBase):
+class ShoppingListItemUpdate(ShoppingListItemBase):
+    pass
+
+class ShoppingListItemInDB(ShoppingListItemBase):
     id: int
     shopping_list_id: int
     created_at: datetime
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class ShoppingListBase(BaseModel):
     name: str
@@ -25,15 +28,18 @@ class ShoppingListBase(BaseModel):
 class ShoppingListCreate(ShoppingListBase):
     pass
 
-class ShoppingListResponse(ShoppingListBase):
+class ShoppingListUpdate(ShoppingListBase):
+    pass
+
+class ShoppingListInDB(ShoppingListBase):
     id: int
     user_id: int
-    items: List[ShoppingListItemResponse]
     created_at: datetime
     updated_at: datetime
+    items: List[ShoppingListItemInDB] = []
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class MarketComparisonItem(BaseModel):
     product_id: int

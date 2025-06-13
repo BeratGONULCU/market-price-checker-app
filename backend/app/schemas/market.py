@@ -1,6 +1,7 @@
 from pydantic import BaseModel
-from datetime import datetime
 from typing import Optional
+from datetime import datetime
+from .base import BaseSchema
 
 class MarketBase(BaseModel):
     name: str
@@ -18,10 +19,11 @@ class MarketCreate(MarketBase):
 class MarketUpdate(MarketBase):
     pass
 
-class Market(MarketBase):
+class MarketInDB(MarketBase, BaseSchema):
+    pass
+
+class Market(MarketInDB):
     id: int
-    created_at: datetime
-    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True 

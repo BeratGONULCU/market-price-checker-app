@@ -1,7 +1,5 @@
-import React from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
-import { useFormik } from 'formik';
-import * as yup from 'yup';
+import React, { useState } from 'react';
+import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import {
   Container,
   Box,
@@ -10,38 +8,38 @@ import {
   Button,
   Link,
   Paper,
+  Alert
 } from '@mui/material';
-import { authService } from '../services/auth';
+import { useAuth } from '../contexts/AuthContext';
+import { useSnackbar } from 'notistack';
+import authService from '../services/auth';
 
-const validationSchema = yup.object({
-  email: yup
-    .string()
-    .email('Geçerli bir email adresi giriniz')
-    .required('Email adresi gereklidir'),
-  password: yup
-    .string()
-    .min(6, 'Şifre en az 6 karakter olmalıdır')
-    .required('Şifre gereklidir'),
-});
-
-const Login = () => {
+const Login: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
+  const { enqueueSnackbar } = useSnackbar();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const formik = useFormik({
-    initialValues: {
-      email: '',
-      password: '',
-    },
-    validationSchema: validationSchema,
-    onSubmit: async (values) => {
-      try {
-        await authService.login(values);
-        navigate('/');
-      } catch (error) {
-        console.error('Login error:', error);
-      }
-    },
-  });
+  const from = location.state?.from || '/';
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    try {
+      const response = await authService.login({ email, password });
+      await login(response.access_token);
+      enqueueSnackbar('Giriş başarılı', { variant: 'success' });
+      navigate(from, { replace: true });
+    } catch (error: any) {
+      console.error('Login error:', error);
+      setError(error.response?.data?.detail || 'Giriş yapılırken bir hata oluştu');
+      enqueueSnackbar('Giriş yapılırken bir hata oluştu', { variant: 'error' });
+    }
+  };
 
   return (
     <Container component="main" maxWidth="xs">
@@ -53,46 +51,39 @@ const Login = () => {
           alignItems: 'center',
         }}
       >
-        <Paper
-          elevation={3}
-          sx={{
-            padding: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            width: '100%',
-          }}
-        >
-          <Typography component="h1" variant="h5">
+        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+          <Typography component="h1" variant="h5" align="center" gutterBottom>
             Giriş Yap
           </Typography>
-          <Box
-            component="form"
-            onSubmit={formik.handleSubmit}
-            sx={{ mt: 1, width: '100%' }}
-          >
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          <Box component="form" onSubmit={handleSubmit} noValidate>
             <TextField
               margin="normal"
+              required
               fullWidth
               id="email"
+              label="E-posta Adresi"
               name="email"
-              label="Email Adresi"
-              value={formik.values.email}
-              onChange={formik.handleChange}
-              error={formik.touched.email && Boolean(formik.errors.email)}
-              helperText={formik.touched.email && formik.errors.email}
+              autoComplete="email"
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
             <TextField
               margin="normal"
+              required
               fullWidth
-              id="password"
               name="password"
               label="Şifre"
               type="password"
-              value={formik.values.password}
-              onChange={formik.handleChange}
-              error={formik.touched.password && Boolean(formik.errors.password)}
-              helperText={formik.touched.password && formik.errors.password}
+              id="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
             <Button
               type="submit"

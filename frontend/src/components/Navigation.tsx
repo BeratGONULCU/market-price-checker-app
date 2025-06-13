@@ -25,6 +25,7 @@ import {
   Menu as MenuIcon,
   Search,
   Notifications,
+  ShoppingCart,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -41,6 +42,7 @@ const Navigation: React.FC = () => {
     { text: 'Karşılaştır', icon: <CompareArrows />, path: '/compare' },
     { text: 'Marketler', icon: <Store />, path: '/markets' },
     { text: 'Kategoriler', icon: <Category />, path: '/categories' },
+    { text: 'Alışveriş Listeleri', icon: <ShoppingCart />, path: '/shopping-lists' },
     { text: 'Profil', icon: <Person />, path: '/profile' },
   ];
 
@@ -138,9 +140,9 @@ const Navigation: React.FC = () => {
           icon={<Favorite />}
         />
         <BottomNavigationAction
-          label="Karşılaştır"
-          value="/compare"
-          icon={<CompareArrows />}
+          label="Listeler"
+          value="/shopping-lists"
+          icon={<ShoppingCart />}
         />
         <BottomNavigationAction
           label="Profil"

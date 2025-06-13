@@ -1,6 +1,6 @@
 from typing import Generator, Optional
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -11,9 +11,7 @@ from app.db.session import SessionLocal
 from app.models.user import User
 from app.schemas.token import TokenPayload
 
-reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/auth/login"
-)
+security_bearer = HTTPBearer()
 
 def get_db() -> Generator:
     try:
@@ -24,9 +22,10 @@ def get_db() -> Generator:
 
 def get_current_user(
     db: Session = Depends(get_db),
-    token: str = Depends(reusable_oauth2)
+    credentials: HTTPAuthorizationCredentials = Depends(security_bearer)
 ) -> User:
     try:
+        token = credentials.credentials
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
         )
@@ -36,7 +35,17 @@ def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         )
-    user = db.query(User).filter(User.id == token_data.sub).first()
+    
+    # Token'dan email'i al
+    email = payload.get("sub")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Could not validate credentials",
+        )
+    
+    # Email ile kullanıcıyı bul
+    user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user

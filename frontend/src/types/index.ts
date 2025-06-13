@@ -1,14 +1,15 @@
 export interface Market {
   id: number;
   name: string;
-  address: string;
-  phone: string;
-  open_hours: string;
-  website: string;
-  latitude: number;
-  longitude: number;
+  logo_url?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface Price {
+  market_id: number;
+  market_name: string;
+  price: number;
 }
 
 export interface ProductDetail {
@@ -28,13 +29,10 @@ export interface Product {
   id: number;
   name: string;
   description: string;
-  brand: string;
-  barcode: string;
-  image_url: string;
+  image_url?: string;
+  prices: Price[];
   created_at: string;
   updated_at: string;
-  details: ProductDetail[];
-  category: Category;
 }
 
 export interface Category {
@@ -42,6 +40,23 @@ export interface Category {
   name: string;
   description: string;
   parent_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PriceAlert {
+  id: number;
+  product_id: number;
+  user_id: number;
+  target_price: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Favorite {
+  id: number;
+  product_id: number;
+  user_id: number;
   created_at: string;
   updated_at: string;
 }
