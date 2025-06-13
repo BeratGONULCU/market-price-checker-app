@@ -1,58 +1,46 @@
+import { ShoppingList } from '../types';
 import api from './api';
-import { ShoppingList, ShoppingListItem } from '../types/shoppingList';
 
 const shoppingListService = {
-  // Alışveriş listelerini getir
-  async getShoppingLists(): Promise<ShoppingList[]> {
-    const response = await api.get<ShoppingList[]>('/api/v1/shopping-lists');
+  getLists: async (): Promise<ShoppingList[]> => {
+    const response = await api.get('/shopping-lists/');
     return response.data;
   },
 
-  // Tek bir alışveriş listesini getir
-  async getShoppingList(id: number): Promise<ShoppingList> {
-    const response = await api.get<ShoppingList>(`/api/v1/shopping-lists/${id}`);
+  getList: async (id: number): Promise<ShoppingList> => {
+    const response = await api.get(`/shopping-lists/${id}/`);
     return response.data;
   },
 
-  // Yeni alışveriş listesi oluştur
-  async createShoppingList(name: string): Promise<ShoppingList> {
-    const response = await api.post<ShoppingList>('/api/v1/shopping-lists', { name });
+  createList: async (name: string): Promise<ShoppingList> => {
+    const response = await api.post('/shopping-lists/', { name });
     return response.data;
   },
 
-  // Alışveriş listesini güncelle
-  async updateShoppingList(id: number, name: string): Promise<ShoppingList> {
-    const response = await api.put<ShoppingList>(`/api/v1/shopping-lists/${id}`, { name });
+  updateList: async (id: number, name: string): Promise<ShoppingList> => {
+    const response = await api.put(`/shopping-lists/${id}/`, { name });
     return response.data;
   },
 
-  // Alışveriş listesini sil
-  async deleteShoppingList(id: number): Promise<void> {
-    await api.delete(`/api/v1/shopping-lists/${id}`);
+  deleteList: async (id: number): Promise<void> => {
+    await api.delete(`/shopping-lists/${id}/`);
   },
 
-  // Listeye ürün ekle
-  async addItemToList(listId: number, productId: number, quantity: number, notes?: string): Promise<ShoppingListItem> {
-    const response = await api.post<ShoppingListItem>(`/api/v1/shopping-lists/${listId}/items`, {
+  addItem: async (listId: number, productId: number, quantity: number): Promise<ShoppingList> => {
+    const response = await api.post(`/shopping-lists/${listId}/items/`, {
       product_id: productId,
-      quantity,
-      notes
+      quantity
     });
     return response.data;
   },
 
-  // Liste öğesini güncelle
-  async updateListItem(itemId: number, quantity: number, notes?: string): Promise<ShoppingListItem> {
-    const response = await api.put<ShoppingListItem>(`/api/v1/shopping-lists/items/${itemId}`, {
-      quantity,
-      notes
-    });
+  updateItem: async (itemId: number, data: { completed?: boolean; quantity?: number }): Promise<ShoppingList> => {
+    const response = await api.put(`/shopping-list-items/${itemId}/`, data);
     return response.data;
   },
 
-  // Liste öğesini sil
-  async deleteListItem(itemId: number): Promise<void> {
-    await api.delete(`/api/v1/shopping-lists/items/${itemId}`);
+  removeItem: async (itemId: number): Promise<void> => {
+    await api.delete(`/shopping-list-items/${itemId}/`);
   }
 };
 

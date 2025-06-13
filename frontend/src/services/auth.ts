@@ -1,3 +1,4 @@
+import { User, RegisterRequest } from '../types';
 import api from './api';
 
 interface LoginRequest {
@@ -5,75 +6,36 @@ interface LoginRequest {
   password: string;
 }
 
-interface RegisterRequest {
-  email: string;
-  password: string;
-  name: string;
-}
-
-interface AuthResponse {
-  access_token: string;
-  token_type: string;
-}
-
-interface UserResponse {
-  id: number;
-  email: string;
-  name: string;
-  is_active: boolean;
-  is_superuser: boolean;
-  created_at: string;
-  updated_at: string | null;
+interface UpdateProfileRequest {
+  name?: string;
+  current_password?: string;
+  new_password?: string;
 }
 
 const authService = {
-  async login(data: LoginRequest): Promise<AuthResponse> {
-    try {
-      const response = await api.post<AuthResponse>('/api/v1/auth/login', data);
-      return response.data;
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
+  login: async (data: LoginRequest): Promise<{ token: string; user: User }> => {
+    const response = await api.post('/api/auth/login/', data);
+    return response.data;
   },
 
-  async register(data: RegisterRequest): Promise<UserResponse> {
-    try {
-      const response = await api.post<UserResponse>('/api/v1/auth/register', data);
-      return response.data;
-    } catch (error) {
-      console.error('Register error:', error);
-      throw error;
-    }
+  register: async (data: RegisterRequest): Promise<{ token: string; user: User }> => {
+    const response = await api.post('/api/auth/register/', data);
+    return response.data;
   },
 
-  async getCurrentUser(): Promise<UserResponse> {
-    try {
-      const response = await api.get<UserResponse>('/api/v1/auth/me');
-      return response.data;
-    } catch (error) {
-      console.error('Get current user error:', error);
-      throw error;
-    }
+  getCurrentUser: async (): Promise<User> => {
+    const response = await api.get('/api/auth/me/');
+    return response.data;
   },
 
-  async updateProfile(data: Partial<RegisterRequest>): Promise<UserResponse> {
-    try {
-      const response = await api.put<UserResponse>('/api/v1/auth/me', data);
-      return response.data;
-    } catch (error) {
-      console.error('Update profile error:', error);
-      throw error;
-    }
+  updateProfile: async (data: UpdateProfileRequest): Promise<User> => {
+    const response = await api.put('/api/auth/me/', data);
+    return response.data;
   },
 
-  logout() {
-    localStorage.removeItem('token');
-  },
-
-  isAuthenticated() {
-    return !!localStorage.getItem('token');
-  },
+  logout: async (): Promise<void> => {
+    await api.post('/api/auth/logout/');
+  }
 };
 
 export default authService; 

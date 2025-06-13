@@ -1,228 +1,213 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Typography,
+  Box,
+  Button,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  CircularProgress,
   List,
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
   IconButton,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Box,
-  Paper,
-  Grid,
-  Card,
-  CardMedia,
-  CardContent
+  Divider,
+  Checkbox
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { useAuth } from '../contexts/AuthContext';
+import { ShoppingList, Product } from '../types';
 import shoppingListService from '../services/shoppingList';
-import { ShoppingList, ShoppingListItem } from '../types/shoppingList';
 
 const ShoppingListDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const { enqueueSnackbar } = useSnackbar();
   const [list, setList] = useState<ShoppingList | null>(null);
+  const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
-  const [editingItem, setEditingItem] = useState<ShoppingListItem | null>(null);
-  const [quantity, setQuantity] = useState(1);
-  const [notes, setNotes] = useState('');
+  const [newItem, setNewItem] = useState({ product_id: 0, quantity: 1 });
+  const [products, setProducts] = useState<Product[]>([]);
+  const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
     if (id) {
-      loadList();
+      fetchList();
     }
-  }, [user, navigate, id]);
+  }, [id]);
 
-  const loadList = async () => {
-    if (!id) return;
+  const fetchList = async () => {
     try {
-      const data = await shoppingListService.getShoppingList(parseInt(id));
+      setLoading(true);
+      const data = await shoppingListService.getList(Number(id));
       setList(data);
     } catch (error) {
+      console.error('Error fetching shopping list:', error);
       enqueueSnackbar('Alışveriş listesi yüklenirken bir hata oluştu', { variant: 'error' });
-      navigate('/shopping-lists');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleAddItem = async () => {
-    if (!list) return;
+    if (!newItem.product_id || newItem.quantity < 1) {
+      enqueueSnackbar('Lütfen geçerli bir ürün ve miktar seçin', { variant: 'error' });
+      return;
+    }
+
     try {
-      await shoppingListService.addItemToList(list.id, 0, quantity, notes); // product_id 0 olarak gönderiliyor, bu kısmı daha sonra düzelteceğiz
-      enqueueSnackbar('Ürün listeye eklendi', { variant: 'success' });
+      const updatedList = await shoppingListService.addItem(Number(id), newItem.product_id, newItem.quantity);
+      setList(updatedList);
+      setNewItem({ product_id: 0, quantity: 1 });
       setOpenDialog(false);
-      setQuantity(1);
-      setNotes('');
-      loadList();
+      enqueueSnackbar('Ürün listeye eklendi', { variant: 'success' });
     } catch (error) {
+      console.error('Error adding item to list:', error);
       enqueueSnackbar('Ürün listeye eklenirken bir hata oluştu', { variant: 'error' });
     }
   };
 
-  const handleUpdateItem = async () => {
-    if (!editingItem) return;
+  const handleRemoveItem = async (itemId: number) => {
     try {
-      await shoppingListService.updateListItem(editingItem.id, quantity, notes);
-      enqueueSnackbar('Ürün güncellendi', { variant: 'success' });
-      setOpenDialog(false);
-      setQuantity(1);
-      setNotes('');
-      setEditingItem(null);
-      loadList();
+      await shoppingListService.removeItem(itemId);
+      setList(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          items: prev.items.filter(item => item.id !== itemId)
+        };
+      });
+      enqueueSnackbar('Ürün listeden kaldırıldı', { variant: 'success' });
     } catch (error) {
-      enqueueSnackbar('Ürün güncellenirken bir hata oluştu', { variant: 'error' });
+      console.error('Error removing item from list:', error);
+      enqueueSnackbar('Ürün listeden kaldırılırken bir hata oluştu', { variant: 'error' });
     }
   };
 
-  const handleDeleteItem = async (itemId: number) => {
-    if (!window.confirm('Bu ürünü listeden silmek istediğinizden emin misiniz?')) return;
+  const handleToggleItem = async (itemId: number, completed: boolean) => {
     try {
-      await shoppingListService.deleteListItem(itemId);
-      enqueueSnackbar('Ürün listeden silindi', { variant: 'success' });
-      loadList();
+      await shoppingListService.updateItem(itemId, { completed });
+      setList(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          items: prev.items.map(item =>
+            item.id === itemId ? { ...item, completed } : item
+          )
+        };
+      });
     } catch (error) {
-      enqueueSnackbar('Ürün silinirken bir hata oluştu', { variant: 'error' });
+      console.error('Error updating item status:', error);
+      enqueueSnackbar('Ürün durumu güncellenirken bir hata oluştu', { variant: 'error' });
     }
   };
 
-  const handleOpenDialog = (item?: ShoppingListItem) => {
-    if (item) {
-      setEditingItem(item);
-      setQuantity(item.quantity);
-      setNotes(item.notes || '');
-    } else {
-      setEditingItem(null);
-      setQuantity(1);
-      setNotes('');
-    }
-    setOpenDialog(true);
-  };
-
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setQuantity(1);
-    setNotes('');
-    setEditingItem(null);
-  };
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   if (!list) {
-    return null;
+    return (
+      <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+        <Typography variant="h6" color="error">
+          Liste bulunamadı
+        </Typography>
+      </Container>
+    );
   }
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4 }}>
-      <Box display="flex" alignItems="center" mb={3}>
-        <IconButton onClick={() => navigate('/shopping-lists')} sx={{ mr: 2 }}>
-          <ArrowBackIcon />
-        </IconButton>
+    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" component="h1">
           {list.name}
         </Typography>
-      </Box>
-
-      <Box display="flex" justifyContent="flex-end" mb={3}>
         <Button
           variant="contained"
           color="primary"
           startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
+          onClick={() => setOpenDialog(true)}
         >
           Ürün Ekle
         </Button>
       </Box>
 
-      <Grid container spacing={2}>
-        {list.items.map((item) => (
-          <Grid item xs={12} sm={6} md={4} key={item.id}>
-            <Card>
-              {item.product?.image_url && (
-                <CardMedia
-                  component="img"
-                  height="140"
-                  image={item.product.image_url}
-                  alt={item.product.name}
+      {list.items.length === 0 ? (
+        <Typography variant="body1" color="text.secondary">
+          Bu listede henüz ürün bulunmamaktadır.
+        </Typography>
+      ) : (
+        <List>
+          {list.items.map((item, index) => (
+            <React.Fragment key={item.id}>
+              <ListItem>
+                <Checkbox
+                  checked={item.completed}
+                  onChange={(e) => handleToggleItem(item.id, e.target.checked)}
                 />
-              )}
-              <CardContent>
-                <Typography variant="h6" component="h2">
-                  {item.product?.name || 'Ürün'}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Miktar: {item.quantity}
-                </Typography>
-                {item.notes && (
-                  <Typography variant="body2" color="text.secondary">
-                    Not: {item.notes}
-                  </Typography>
-                )}
-              </CardContent>
-              <Box display="flex" justifyContent="flex-end" p={1}>
-                <IconButton
-                  size="small"
-                  onClick={() => handleOpenDialog(item)}
-                >
-                  <EditIcon />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  onClick={() => handleDeleteItem(item.id)}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </Box>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                <ListItemText
+                  primary={item.product.name}
+                  secondary={`Miktar: ${item.quantity}`}
+                  sx={{
+                    textDecoration: item.completed ? 'line-through' : 'none',
+                    color: item.completed ? 'text.secondary' : 'text.primary'
+                  }}
+                />
+                <ListItemSecondaryAction>
+                  <IconButton
+                    edge="end"
+                    aria-label="delete"
+                    onClick={() => handleRemoveItem(item.id)}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </ListItemSecondaryAction>
+              </ListItem>
+              {index < list.items.length - 1 && <Divider />}
+            </React.Fragment>
+          ))}
+        </List>
+      )}
 
-      <Dialog open={openDialog} onClose={handleCloseDialog}>
-        <DialogTitle>
-          {editingItem ? 'Ürünü Düzenle' : 'Ürün Ekle'}
-        </DialogTitle>
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
+        <DialogTitle>Ürün Ekle</DialogTitle>
         <DialogContent>
           <TextField
-            autoFocus
-            margin="dense"
-            label="Miktar"
-            type="number"
+            select
             fullWidth
-            value={quantity}
-            onChange={(e) => setQuantity(parseInt(e.target.value))}
-            inputProps={{ min: 1 }}
-          />
+            label="Ürün"
+            value={newItem.product_id}
+            onChange={(e) => setNewItem(prev => ({ ...prev, product_id: Number(e.target.value) }))}
+            sx={{ mt: 2 }}
+          >
+            {products.map((product) => (
+              <option key={product.id} value={product.id}>
+                {product.name}
+              </option>
+            ))}
+          </TextField>
           <TextField
-            margin="dense"
-            label="Notlar"
-            type="text"
             fullWidth
-            multiline
-            rows={2}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            type="number"
+            label="Miktar"
+            value={newItem.quantity}
+            onChange={(e) => setNewItem(prev => ({ ...prev, quantity: Number(e.target.value) }))}
+            sx={{ mt: 2 }}
+            inputProps={{ min: 1 }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>İptal</Button>
-          <Button
-            onClick={editingItem ? handleUpdateItem : handleAddItem}
-            color="primary"
-            disabled={quantity < 1}
-          >
-            {editingItem ? 'Güncelle' : 'Ekle'}
+          <Button onClick={() => setOpenDialog(false)}>İptal</Button>
+          <Button onClick={handleAddItem} color="primary">
+            Ekle
           </Button>
         </DialogActions>
       </Dialog>

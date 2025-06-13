@@ -25,33 +25,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      fetchUser();
-    } else {
+    const initializeAuth = async () => {
+      console.log('AuthProvider - Initializing auth...');
+      const token = localStorage.getItem('token');
+      console.log('AuthProvider - Token exists:', !!token);
+
+      if (token) {
+        try {
+          console.log('AuthProvider - Fetching user data...');
+          const userData = await authService.getCurrentUser();
+          console.log('AuthProvider - User data:', userData);
+          setUser(userData);
+        } catch (error) {
+          console.error('AuthProvider - Error fetching user:', error);
+          localStorage.removeItem('token');
+          setUser(null);
+        }
+      }
       setLoading(false);
-    }
+    };
+
+    initializeAuth();
   }, []);
 
-  const fetchUser = async () => {
+  const login = async (token: string) => {
+    console.log('AuthProvider - Logging in...');
+    localStorage.setItem('token', token);
     try {
       const userData = await authService.getCurrentUser();
+      console.log('AuthProvider - Login successful, user data:', userData);
       setUser(userData);
     } catch (error) {
-      console.error('Error fetching user:', error);
-      localStorage.removeItem('token'); // Token geçersizse sil
+      console.error('AuthProvider - Error during login:', error);
+      localStorage.removeItem('token');
       setUser(null);
-    } finally {
-      setLoading(false);
+      throw error;
     }
-  };
-
-  const login = async (token: string) => {
-    localStorage.setItem('token', token);
-    await fetchUser();
   };
 
   const logout = () => {
+    console.log('AuthProvider - Logging out...');
     localStorage.removeItem('token');
     setUser(null);
   };
@@ -65,7 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };

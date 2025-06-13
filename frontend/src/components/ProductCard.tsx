@@ -5,51 +5,48 @@ import {
   CardMedia,
   Typography,
   Button,
+  Box,
   IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
-  Box,
-  Alert,
   CircularProgress
 } from '@mui/material';
 import { Favorite, FavoriteBorder, Notifications, NotificationsActive } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
-import { Product, Price } from '../types';
+import { Product, ProductDetail } from '../types';
 import { useNavigate } from 'react-router-dom';
 import favoriteService from '../services/favorite';
 import priceAlertService from '../services/priceAlert';
-import api from '../services/api';
 
 interface ProductCardProps {
   product: Product;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [hasPriceAlert, setHasPriceAlert] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [openPriceAlertDialog, setOpenPriceAlertDialog] = useState(false);
+  const [targetPrice, setTargetPrice] = useState('');
+  const [selectedMarketId, setSelectedMarketId] = useState<number | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [isMarketDialogOpen, setIsMarketDialogOpen] = useState(false);
-  const [selectedMarketId, setSelectedMarketId] = useState<number | null>(null);
-  const [priceAlert, setPriceAlert] = useState<number | null>(null);
-  const [showPriceAlertInput, setShowPriceAlertInput] = useState(false);
-  const [targetPrice, setTargetPrice] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
       checkFavoriteStatus();
-      checkPriceAlert();
+      checkPriceAlertStatus();
     }
-  }, [user, product.id]);
+  }, [user, product]);
 
   const checkFavoriteStatus = async () => {
+    if (!user) return;
     try {
       // En düşük fiyatlı marketi seç
-      const lowestPriceDetail = product.prices.reduce((prev: Price, current: Price) => 
+      const lowestPriceDetail = product.details.reduce((prev: ProductDetail, current: ProductDetail) => 
         (prev.price < current.price) ? prev : current
       );
       const status = await favoriteService.isFavorite(product.id, lowestPriceDetail.market_id);
@@ -59,14 +56,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     }
   };
 
-  const checkPriceAlert = async () => {
+  const checkPriceAlertStatus = async () => {
+    if (!user) return;
     try {
       const alert = await priceAlertService.getProductPriceAlert(product.id);
-      if (alert) {
-        setPriceAlert(alert.target_price);
-      }
+      setHasPriceAlert(!!alert);
     } catch (error) {
-      console.error('Error checking price alert:', error);
+      console.error('Error checking price alert status:', error);
     }
   };
 
@@ -79,64 +75,60 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     try {
       setLoading(true);
       // En düşük fiyatlı marketi seç
-      const lowestPriceDetail = product.prices.reduce((prev: Price, current: Price) => 
+      const lowestPriceDetail = product.details.reduce((prev: ProductDetail, current: ProductDetail) => 
         (prev.price < current.price) ? prev : current
       );
 
-      console.log('Product prices:', product.prices);
+      console.log('Product details:', product.details);
       console.log('Lowest price detail:', lowestPriceDetail);
       console.log('Toggling favorite for product:', product.id, 'market:', lowestPriceDetail.market_id);
 
-      // PATCH isteği gönder
-      const response = await api.patch(
-        `/api/v1/products/${product.id}/details/${lowestPriceDetail.market_id}/favorite`
-      );
-      console.log('Favorite toggle response:', response.data);
+      if (isFavorite) {
+        await favoriteService.removeFavorite(product.id, lowestPriceDetail.market_id);
+      } else {
+        await favoriteService.addFavorite(product.id, lowestPriceDetail.market_id);
+      }
 
       setIsFavorite(!isFavorite);
-    } catch (error: any) {
-      console.error('Favori işlemi sırasında hata:', error);
-      if (error.response) {
-        console.error('Error response:', error.response.data);
-        console.error('Error status:', error.response.status);
-      }
-      setError('Favori işlemi sırasında bir hata oluştu');
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleMarketClick = (marketId: number) => {
+  const handleTogglePriceAlert = async () => {
     if (!user) {
       navigate('/login');
       return;
     }
-    setSelectedMarketId(marketId);
-    setIsMarketDialogOpen(true);
+
+    if (hasPriceAlert) {
+      try {
+        const alert = await priceAlertService.getProductPriceAlert(product.id);
+        if (alert) {
+          await priceAlertService.deletePriceAlert(alert.id);
+          setHasPriceAlert(false);
+        }
+      } catch (error) {
+        console.error('Error removing price alert:', error);
+      }
+    } else {
+      setOpenPriceAlertDialog(true);
+    }
   };
 
-  const handlePriceAlertSubmit = async () => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
+  const handleCreatePriceAlert = async () => {
+    if (!selectedMarketId || !targetPrice) return;
 
     try {
-      setLoading(true);
-      const targetPriceNum = parseFloat(targetPrice);
-      if (isNaN(targetPriceNum) || targetPriceNum <= 0) {
-        setError('Lütfen geçerli bir fiyat girin');
-        return;
-      }
-
-      await priceAlertService.createPriceAlert(product.id, targetPriceNum);
-      setPriceAlert(targetPriceNum);
-      setShowPriceAlertInput(false);
+      await priceAlertService.createPriceAlert(product.id, parseFloat(targetPrice));
+      setHasPriceAlert(true);
+      setOpenPriceAlertDialog(false);
       setTargetPrice('');
+      setSelectedMarketId(null);
     } catch (error) {
-      setError('Fiyat alarmı oluşturulurken bir hata oluştu');
-    } finally {
-      setLoading(false);
+      console.error('Error creating price alert:', error);
     }
   };
 
@@ -147,75 +139,67 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         height="140"
         image={product.image_url || 'https://via.placeholder.com/140'}
         alt={product.name}
+        sx={{ objectFit: 'contain', p: 2 }}
       />
       <CardContent sx={{ flexGrow: 1 }}>
-        <Typography gutterBottom variant="h6" component="div">
+        <Typography gutterBottom variant="h6" component="div" noWrap>
           {product.name}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {product.description}
-        </Typography>
         <Box sx={{ mt: 2 }}>
-          {product.prices.map((price: Price) => (
+          {product.details.map((detail) => (
             <Button
-              key={price.market_id}
+              key={detail.market_id}
               variant="outlined"
               size="small"
               sx={{ mr: 1, mb: 1 }}
-              onClick={() => handleMarketClick(price.market_id)}
+              onClick={() => {
+                setSelectedMarketId(detail.market_id);
+                setOpenPriceAlertDialog(true);
+              }}
             >
-              {price.market_name}: {price.price} TL
+              {detail.market?.name}: {detail.price} TL
             </Button>
           ))}
         </Box>
       </CardContent>
-      <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <IconButton onClick={handleToggleFavorite} disabled={loading}>
-          {isFavorite ? <Favorite color="error" /> : <FavoriteBorder />}
-        </IconButton>
-        <IconButton
-          onClick={() => setShowPriceAlertInput(!showPriceAlertInput)}
-          disabled={loading}
-        >
-          {priceAlert ? <NotificationsActive color="primary" /> : <Notifications />}
-        </IconButton>
+      <Box sx={{ p: 2, pt: 0 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <IconButton
+            onClick={handleToggleFavorite}
+            disabled={loading}
+            color={isFavorite ? 'primary' : 'default'}
+          >
+            {isFavorite ? <Favorite /> : <FavoriteBorder />}
+          </IconButton>
+          <IconButton
+            onClick={handleTogglePriceAlert}
+            color={hasPriceAlert ? 'primary' : 'default'}
+          >
+            {hasPriceAlert ? <NotificationsActive /> : <Notifications />}
+          </IconButton>
+        </Box>
       </Box>
-      {showPriceAlertInput && (
-        <Box sx={{ p: 2 }}>
+
+      <Dialog open={openPriceAlertDialog} onClose={() => setOpenPriceAlertDialog(false)}>
+        <DialogTitle>Fiyat Alarmı Oluştur</DialogTitle>
+        <DialogContent>
+          <Typography>
+            {selectedMarketId && product.details.find((d) => d.market_id === selectedMarketId)?.market?.name}
+          </Typography>
           <TextField
             fullWidth
-            size="small"
             label="Hedef Fiyat"
             type="number"
             value={targetPrice}
             onChange={(e) => setTargetPrice(e.target.value)}
-            disabled={loading}
+            sx={{ mt: 2 }}
           />
-          <Button
-            fullWidth
-            variant="contained"
-            onClick={handlePriceAlertSubmit}
-            disabled={loading}
-            sx={{ mt: 1 }}
-          >
-            {loading ? <CircularProgress size={24} /> : 'Fiyat Alarmı Oluştur'}
-          </Button>
-        </Box>
-      )}
-      {error && (
-        <Alert severity="error" onClose={() => setError(null)} sx={{ m: 2 }}>
-          {error}
-        </Alert>
-      )}
-      <Dialog open={isMarketDialogOpen} onClose={() => setIsMarketDialogOpen(false)}>
-        <DialogTitle>Market Seçildi</DialogTitle>
-        <DialogContent>
-          <Typography>
-            {selectedMarketId && product.prices.find((p: Price) => p.market_id === selectedMarketId)?.market_name}
-          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsMarketDialogOpen(false)}>Kapat</Button>
+          <Button onClick={() => setOpenPriceAlertDialog(false)}>İptal</Button>
+          <Button onClick={handleCreatePriceAlert} color="primary">
+            Oluştur
+          </Button>
         </DialogActions>
       </Dialog>
     </Card>

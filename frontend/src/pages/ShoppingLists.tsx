@@ -21,13 +21,14 @@ import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, ShoppingCart as
 import { useSnackbar } from 'notistack';
 import { useAuth } from '../contexts/AuthContext';
 import shoppingListService from '../services/shoppingList';
-import { ShoppingList } from '../types/shoppingList';
+import { ShoppingList } from '../types';
 
 const ShoppingLists: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
   const [lists, setLists] = useState<ShoppingList[]>([]);
+  const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [listName, setListName] = useState('');
   const [editingList, setEditingList] = useState<ShoppingList | null>(null);
@@ -42,21 +43,25 @@ const ShoppingLists: React.FC = () => {
 
   const loadLists = async () => {
     try {
-      const data = await shoppingListService.getShoppingLists();
+      const data = await shoppingListService.getLists();
       setLists(data);
     } catch (error) {
+      console.error('Error loading shopping lists:', error);
       enqueueSnackbar('Alışveriş listeleri yüklenirken bir hata oluştu', { variant: 'error' });
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleCreateList = async () => {
     try {
-      await shoppingListService.createShoppingList(listName);
+      await shoppingListService.createList(listName);
       enqueueSnackbar('Alışveriş listesi oluşturuldu', { variant: 'success' });
       setOpenDialog(false);
       setListName('');
       loadLists();
     } catch (error) {
+      console.error('Error creating list:', error);
       enqueueSnackbar('Alışveriş listesi oluşturulurken bir hata oluştu', { variant: 'error' });
     }
   };
@@ -64,13 +69,14 @@ const ShoppingLists: React.FC = () => {
   const handleUpdateList = async () => {
     if (!editingList) return;
     try {
-      await shoppingListService.updateShoppingList(editingList.id, listName);
+      await shoppingListService.updateList(editingList.id, listName);
       enqueueSnackbar('Alışveriş listesi güncellendi', { variant: 'success' });
       setOpenDialog(false);
       setListName('');
       setEditingList(null);
       loadLists();
     } catch (error) {
+      console.error('Error updating list:', error);
       enqueueSnackbar('Alışveriş listesi güncellenirken bir hata oluştu', { variant: 'error' });
     }
   };
@@ -78,10 +84,11 @@ const ShoppingLists: React.FC = () => {
   const handleDeleteList = async (id: number) => {
     if (!window.confirm('Bu alışveriş listesini silmek istediğinizden emin misiniz?')) return;
     try {
-      await shoppingListService.deleteShoppingList(id);
+      await shoppingListService.deleteList(id);
       enqueueSnackbar('Alışveriş listesi silindi', { variant: 'success' });
       loadLists();
     } catch (error) {
+      console.error('Error deleting list:', error);
       enqueueSnackbar('Alışveriş listesi silinirken bir hata oluştu', { variant: 'error' });
     }
   };
@@ -188,4 +195,4 @@ const ShoppingLists: React.FC = () => {
   );
 };
 
-export default ShoppingLists; 
+export default ShoppingLists;

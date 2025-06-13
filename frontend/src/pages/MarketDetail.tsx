@@ -25,7 +25,7 @@ import {
 } from '@mui/icons-material';
 import { Product, ProductDetail } from '../types/product';
 import { Market } from '../types/market';
-import { ShoppingList } from '../types/shoppingList';
+import { ShoppingList } from '../types';
 import axios from 'axios';
 
 const MarketDetail: React.FC = () => {

@@ -14,7 +14,6 @@ import Categories from './pages/Categories';
 import MarketDetail from './pages/MarketDetail';
 import ProductDetail from './pages/ProductDetail';
 import ShoppingList from './pages/ShoppingList';
-import PrivateRoute from './components/PrivateRoute';
 import Cart from './pages/Cart';
 import { useAuth } from './contexts/AuthContext';
 import ShoppingLists from './pages/ShoppingLists';
@@ -46,29 +45,21 @@ const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
-const App: React.FC = () => {
+// Auth Route - Login ve Register sayfaları için
+const AuthRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  return user ? <Navigate to="/" /> : <AuthLayout>{children}</AuthLayout>;
+};
 
+const App: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Router>
         <Routes>
           {/* Auth Routes */}
-          <Route path="/login" element={
-            user ? <Navigate to="/" /> : (
-              <AuthLayout>
-                <Login />
-              </AuthLayout>
-            )
-          } />
-          <Route path="/register" element={
-            user ? <Navigate to="/" /> : (
-              <AuthLayout>
-                <Register />
-              </AuthLayout>
-            )
-          } />
+          <Route path="/login" element={<AuthRoute><Login /></AuthRoute>} />
+          <Route path="/register" element={<AuthRoute><Register /></AuthRoute>} />
 
           {/* Main Routes */}
           <Route path="/" element={
@@ -78,16 +69,12 @@ const App: React.FC = () => {
           } />
           <Route path="/profile" element={
             <MainLayout>
-              <PrivateRoute>
-                <Profile />
-              </PrivateRoute>
+              <Profile />
             </MainLayout>
           } />
           <Route path="/favorites" element={
             <MainLayout>
-              <PrivateRoute>
-                <Favorites />
-              </PrivateRoute>
+              <Favorites />
             </MainLayout>
           } />
           <Route path="/compare" element={
@@ -117,30 +104,22 @@ const App: React.FC = () => {
           } />
           <Route path="/shopping-list" element={
             <MainLayout>
-              <PrivateRoute>
-                <ShoppingList />
-              </PrivateRoute>
+              <ShoppingList />
             </MainLayout>
           } />
           <Route path="/cart" element={
             <MainLayout>
-              <PrivateRoute>
-                <Cart />
-              </PrivateRoute>
+              <Cart />
             </MainLayout>
           } />
           <Route path="/shopping-lists" element={
             <MainLayout>
-              <PrivateRoute>
-                <ShoppingLists />
-              </PrivateRoute>
+              <ShoppingLists />
             </MainLayout>
           } />
           <Route path="/shopping-lists/:id" element={
             <MainLayout>
-              <PrivateRoute>
-                <ShoppingListDetail />
-              </PrivateRoute>
+              <ShoppingListDetail />
             </MainLayout>
           } />
         </Routes>

@@ -1,7 +1,12 @@
 export interface Market {
   id: number;
   name: string;
-  logo_url?: string;
+  address: string;
+  phone: string;
+  open_hours: string;
+  website: string;
+  latitude: number;
+  longitude: number;
   created_at: string;
   updated_at: string;
 }
@@ -30,7 +35,7 @@ export interface Product {
   name: string;
   description: string;
   image_url?: string;
-  prices: Price[];
+  details: ProductDetail[];
   created_at: string;
   updated_at: string;
 }
@@ -59,5 +64,11 @@ export interface Favorite {
   user_id: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface User {
+  id: number;
+  email: string;
+  name: string;
 }
 

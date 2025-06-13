@@ -50,7 +50,7 @@ import axios from 'axios';
 import { Product } from '../types/product';
 import type { ProductDetail as ProductDetailType } from '../types/product';
 import { Market } from '../types/market';
-import { ShoppingList } from '../types/shoppingList';
+import { ShoppingList } from '../types';
 import { Review } from '../types/review';
 import { useSnackbar } from 'notistack';
 import favoriteService from '../services/favorite';
@@ -180,27 +180,27 @@ const ProductDetail: React.FC = () => {
 
   const loadShoppingLists = async () => {
     try {
-      const lists = await shoppingListService.getShoppingLists();
+      const lists = await shoppingListService.getLists();
       setShoppingLists(lists);
       if (lists.length > 0) {
         setSelectedList(lists[0].id);
       }
     } catch (error) {
       console.error('Error loading shopping lists:', error);
+      enqueueSnackbar('Alışveriş listeleri yüklenirken bir hata oluştu', { variant: 'error' });
     }
   };
 
   const handleAddToList = async () => {
     if (!selectedList || !product) return;
     try {
-      await shoppingListService.addItemToList(selectedList, product.id, quantity, notes);
+      await shoppingListService.addItem(selectedList, product.id, quantity);
       setOpenListDialog(false);
       setQuantity(1);
       setNotes('');
-      setSelectedList(null);
       enqueueSnackbar('Ürün listeye eklendi', { variant: 'success' });
     } catch (error) {
-      console.error('Error adding item to list:', error);
+      console.error('Error adding to list:', error);
       enqueueSnackbar('Ürün listeye eklenirken bir hata oluştu', { variant: 'error' });
     }
   };
@@ -425,11 +425,11 @@ const ProductDetail: React.FC = () => {
                   </Box>
                 ))}
                 <Box display="flex" gap={2} mt={2}>
-                  <Button
-                    variant="contained"
-                    color="primary"
+                <Button
+                  variant="contained"
+                  color="primary"
                     startIcon={<ShoppingCartIcon />}
-                    onClick={() => setShowAddToListDialog(true)}
+                  onClick={() => setShowAddToListDialog(true)}
                   >
                     Listeye Ekle
                   </Button>
@@ -438,9 +438,9 @@ const ProductDetail: React.FC = () => {
                     color="primary"
                     startIcon={<ListIcon />}
                     onClick={handleOpenListDialog}
-                  >
+                >
                     Listeye Ekle
-                  </Button>
+                </Button>
                   <IconButton
                     color="primary"
                     onClick={handleToggleFavorite}

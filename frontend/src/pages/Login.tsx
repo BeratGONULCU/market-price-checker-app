@@ -23,22 +23,23 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const from = location.state?.from || '/';
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     try {
       const response = await authService.login({ email, password });
-      await login(response.access_token);
+      await login(response.token);
       enqueueSnackbar('Giriş başarılı', { variant: 'success' });
-      navigate(from, { replace: true });
+      
+      const redirectPath = location.state?.from || '/';
+      console.log('Redirecting to:', redirectPath);
+      navigate(redirectPath, { replace: true });
     } catch (error: any) {
-      console.error('Login error:', error);
+        console.error('Login error:', error);
       setError(error.response?.data?.detail || 'Giriş yapılırken bir hata oluştu');
       enqueueSnackbar('Giriş yapılırken bir hata oluştu', { variant: 'error' });
-    }
+      }
   };
 
   return (

@@ -54,23 +54,9 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Product } from '../types/product';
 import { Market } from '../types/market';
-
-interface ShoppingListItem {
-  id: number;
-  product_id: number;
-  quantity: number;
-  product: Product;
-  is_checked: boolean;
-}
-
-interface ShoppingList {
-  id: number;
-  name: string;
-  items: ShoppingListItem[];
-  created_at: string;
-  updated_at: string;
-  total_budget?: number;
-}
+import { useSnackbar } from 'notistack';
+import shoppingListService from '../services/shoppingList';
+import { ShoppingList, ShoppingListItem } from '../types';
 
 interface MarketComparison {
   market_id: number;
@@ -93,13 +79,13 @@ const ShoppingListPage: React.FC = () => {
   const [newListName, setNewListName] = useState('');
   const [activeTab, setActiveTab] = useState(0);
   const [marketComparisons, setMarketComparisons] = useState<MarketComparison[]>([]);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const { enqueueSnackbar } = useSnackbar();
   const [showAddItemDialog, setShowAddItemDialog] = useState(false);
   const [newItem, setNewItem] = useState({ product_id: 0, quantity: 1 });
   const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
-    loadShoppingLists();
+    fetchLists();
   }, []);
 
   useEffect(() => {
@@ -112,25 +98,14 @@ const ShoppingListPage: React.FC = () => {
     loadProducts();
   }, []);
 
-  const loadShoppingLists = async () => {
+  const fetchLists = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:8000/api/v1/shopping-lists', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      setLists(response.data);
-      if (response.data.length > 0) {
-        setSelectedList(response.data[0]);
-      }
+      const data = await shoppingListService.getLists();
+      setLists(data);
     } catch (error) {
-      console.error('Alışveriş listeleri yüklenirken hata:', error);
-      setSnackbar({
-        open: true,
-        message: 'Listeler yüklenirken bir hata oluştu',
-        severity: 'error'
-      });
+      console.error('Error fetching shopping lists:', error);
+      enqueueSnackbar('Alışveriş listeleri yüklenirken bir hata oluştu', { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -161,39 +136,61 @@ const ShoppingListPage: React.FC = () => {
       setProducts(response.data);
     } catch (error) {
       console.error('Ürünler yüklenirken hata:', error);
-      setSnackbar({
-        open: true,
-        message: 'Ürünler yüklenirken bir hata oluştu',
-        severity: 'error'
-      });
+      enqueueSnackbar('Ürünler yüklenirken bir hata oluştu', { variant: 'error' });
     }
   };
 
   const handleCreateList = async () => {
+    if (!newListName.trim()) {
+      enqueueSnackbar('Liste adı boş olamaz', { variant: 'error' });
+      return;
+    }
+
     try {
-      const response = await axios.post('http://localhost:8000/api/v1/shopping-lists', {
-        name: newListName
-      }, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-      setLists([...lists, response.data]);
-      setSelectedList(response.data);
-      setShowNewListDialog(false);
+      const newList = await shoppingListService.createList(newListName);
+      setLists(prev => [...prev, newList]);
       setNewListName('');
-      setSnackbar({
-        open: true,
-        message: 'Yeni liste oluşturuldu',
-        severity: 'success'
-      });
+      setShowNewListDialog(false);
+      enqueueSnackbar('Alışveriş listesi oluşturuldu', { variant: 'success' });
     } catch (error) {
-      console.error('Liste oluşturulurken hata:', error);
-      setSnackbar({
-        open: true,
-        message: 'Liste oluşturulurken bir hata oluştu',
-        severity: 'error'
-      });
+      console.error('Error creating shopping list:', error);
+      enqueueSnackbar('Alışveriş listesi oluşturulurken bir hata oluştu', { variant: 'error' });
+    }
+  };
+
+  const handleDeleteList = async (listId: number) => {
+    try {
+      await shoppingListService.deleteList(listId);
+      setLists(prev => prev.filter(list => list.id !== listId));
+      enqueueSnackbar('Alışveriş listesi silindi', { variant: 'success' });
+    } catch (error) {
+      console.error('Error deleting shopping list:', error);
+      enqueueSnackbar('Alışveriş listesi silinirken bir hata oluştu', { variant: 'error' });
+    }
+  };
+
+  const handleEditClick = (list: ShoppingList) => {
+    setSelectedList(list);
+    setNewListName(list.name);
+    setShowNewListDialog(true);
+  };
+
+  const handleUpdateList = async () => {
+    if (!selectedList || !newListName.trim()) {
+      enqueueSnackbar('Liste adı boş olamaz', { variant: 'error' });
+      return;
+    }
+
+    try {
+      const updatedList = await shoppingListService.updateList(selectedList.id, newListName);
+      setLists(prev => prev.map(list => list.id === updatedList.id ? updatedList : list));
+      setNewListName('');
+      setSelectedList(null);
+      setShowNewListDialog(false);
+      enqueueSnackbar('Alışveriş listesi güncellendi', { variant: 'success' });
+    } catch (error) {
+      console.error('Error updating shopping list:', error);
+      enqueueSnackbar('Alışveriş listesi güncellenirken bir hata oluştu', { variant: 'error' });
     }
   };
 
@@ -207,19 +204,11 @@ const ShoppingListPage: React.FC = () => {
       if (selectedList) {
         const updatedItems = selectedList.items.filter(item => item.id !== itemId);
         setSelectedList({ ...selectedList, items: updatedItems });
-        setSnackbar({
-          open: true,
-          message: 'Ürün listeden kaldırıldı',
-          severity: 'success'
-        });
+        enqueueSnackbar('Ürün listeden kaldırıldı', { variant: 'success' });
       }
     } catch (error) {
       console.error('Ürün silinirken hata:', error);
-      setSnackbar({
-        open: true,
-        message: 'Ürün silinirken bir hata oluştu',
-        severity: 'error'
-      });
+      enqueueSnackbar('Ürün silinirken bir hata oluştu', { variant: 'error' });
     }
   };
 
@@ -244,11 +233,7 @@ const ShoppingListPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Ürün durumu güncellenirken hata:', error);
-      setSnackbar({
-        open: true,
-        message: 'Ürün durumu güncellenirken bir hata oluştu',
-        severity: 'error'
-      });
+      enqueueSnackbar('Ürün durumu güncellenirken bir hata oluştu', { variant: 'error' });
     }
   };
 
@@ -264,18 +249,10 @@ const ShoppingListPage: React.FC = () => {
         }
       });
       navigator.clipboard.writeText(response.data.share_url);
-      setSnackbar({
-        open: true,
-        message: 'Paylaşım linki kopyalandı',
-        severity: 'success'
-      });
+      enqueueSnackbar('Paylaşım linki kopyalandı', { variant: 'success' });
     } catch (error) {
       console.error('Liste paylaşılırken hata:', error);
-      setSnackbar({
-        open: true,
-        message: 'Liste paylaşılırken bir hata oluştu',
-        severity: 'error'
-      });
+      enqueueSnackbar('Liste paylaşılırken bir hata oluştu', { variant: 'error' });
     }
   };
 
@@ -296,18 +273,10 @@ const ShoppingListPage: React.FC = () => {
       link.click();
       link.remove();
       
-      setSnackbar({
-        open: true,
-        message: 'PDF dosyası indirildi',
-        severity: 'success'
-      });
+      enqueueSnackbar('PDF dosyası indirildi', { variant: 'success' });
     } catch (error) {
       console.error('PDF indirilirken hata:', error);
-      setSnackbar({
-        open: true,
-        message: 'PDF indirilirken bir hata oluştu',
-        severity: 'error'
-      });
+      enqueueSnackbar('PDF indirilirken bir hata oluştu', { variant: 'error' });
     }
   };
 
@@ -332,18 +301,10 @@ const ShoppingListPage: React.FC = () => {
 
       setShowAddItemDialog(false);
       setNewItem({ product_id: 0, quantity: 1 });
-      setSnackbar({
-        open: true,
-        message: 'Ürün listeye eklendi',
-        severity: 'success'
-      });
+      enqueueSnackbar('Ürün listeye eklendi', { variant: 'success' });
     } catch (error) {
       console.error('Ürün eklenirken hata:', error);
-      setSnackbar({
-        open: true,
-        message: 'Ürün eklenirken bir hata oluştu',
-        severity: 'error'
-      });
+      enqueueSnackbar('Ürün eklenirken bir hata oluştu', { variant: 'error' });
     }
   };
 
@@ -365,7 +326,11 @@ const ShoppingListPage: React.FC = () => {
           <Button
             color="inherit"
             startIcon={<AddIcon />}
-            onClick={() => setShowNewListDialog(true)}
+            onClick={() => {
+              setSelectedList(null);
+              setNewListName('');
+              setShowNewListDialog(true);
+            }}
           >
             Yeni Liste
           </Button>
@@ -387,7 +352,11 @@ const ShoppingListPage: React.FC = () => {
                       key={list.id}
                       button
                       selected={selectedList?.id === list.id}
-                      onClick={() => setSelectedList(list)}
+                      onClick={() => {
+                        setSelectedList(list);
+                        setNewListName(list.name);
+                        setShowNewListDialog(true);
+                      }}
                     >
                       <ListItemText
                         primary={list.name}
@@ -619,7 +588,9 @@ const ShoppingListPage: React.FC = () => {
 
       {/* Yeni Liste Dialog'u */}
       <Dialog open={showNewListDialog} onClose={() => setShowNewListDialog(false)}>
-        <DialogTitle>Yeni Alışveriş Listesi</DialogTitle>
+        <DialogTitle>
+          {selectedList ? 'Listeyi Düzenle' : 'Yeni Alışveriş Listesi'}
+        </DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -632,8 +603,11 @@ const ShoppingListPage: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowNewListDialog(false)}>İptal</Button>
-          <Button onClick={handleCreateList} variant="contained">
-            Oluştur
+          <Button
+            onClick={selectedList ? handleUpdateList : handleCreateList}
+            color="primary"
+          >
+            {selectedList ? 'Güncelle' : 'Oluştur'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -672,21 +646,6 @@ const ShoppingListPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Bildirim Snackbar'ı */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </>
   );
 };

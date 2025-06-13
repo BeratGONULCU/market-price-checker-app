@@ -1,13 +1,13 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: 'http://localhost:8000',  // FastAPI backend URL
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor - her istekte token'ı ekle
+// Add a request interceptor to include auth token
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
