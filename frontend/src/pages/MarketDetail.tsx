@@ -70,11 +70,7 @@ const MarketDetail: React.FC = () => {
 
     const fetchFavorites = async () => {
       try {
-        const response = await axios.get('http://localhost:8000/api/v1/favorites', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
+        const response = await axios.get('http://localhost:8000/api/v1/favorites');
         setFavorites(response.data.map((fav: any) => fav.product_id));
       } catch (err) {
         console.error('Error fetching favorites:', err);
@@ -117,10 +113,7 @@ const MarketDetail: React.FC = () => {
       const method = isFavorite ? 'DELETE' : 'POST';
       await axios({
         method,
-        url: `http://localhost:8000/api/v1/favorites/${productId}`,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        url: `http://localhost:8000/api/v1/favorites/${productId}`
       });
 
       setFavorites(prev =>

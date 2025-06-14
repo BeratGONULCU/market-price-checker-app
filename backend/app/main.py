@@ -22,7 +22,6 @@ from app.schemas import (
 from app.database import SessionLocal, engine
 from app.db.base import Base
 from app.api.endpoints import products, categories, auth, markets, favorites, reviews, users
-from fastapi.middleware.cors import CORSMiddleware
 
 
 # Create tables
@@ -36,29 +35,30 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="Market Price Comparison API",
+    title=settings.PROJECT_NAME,
     description="API for comparing product prices across different markets",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url="/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
 # CORS ayarları
 origins = [
     "http://localhost:3000",
-    "http://localhost:3001",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",
     "http://127.0.0.1:3001",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # veya ["*"] geliştirirken
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["*"]
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 

@@ -115,7 +115,7 @@ def get_product_details(
         logging.error(f"Error in get_product_details: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/favorites", response_model=List[schemas.Product])
+@router.get("/favorites", response_model=List[schemas.ProductDetail])
 def get_favorite_products(
     db: Session = Depends(deps.get_db),
     current_user: models.User = Depends(deps.get_current_user)
@@ -129,35 +129,18 @@ def get_favorite_products(
         # Favori olan ürün detaylarını bul
         favorite_details = db.query(ProductDetail).filter(
             ProductDetail.is_favorite == True
+        ).options(
+            joinedload(ProductDetail.product),
+            joinedload(ProductDetail.market)
         ).all()
         
         logging.info(f"Found {len(favorite_details)} favorite details")
         
-        # Favori detayların ürün ID'lerini al
-        product_ids = [detail.product_id for detail in favorite_details]
-        logging.info(f"Product IDs: {product_ids}")
-        
-        if not product_ids:
+        if not favorite_details:
             logging.info("No favorite products found")
             return []
         
-        # Bu ürünleri ve detaylarını çek
-        products = db.query(Product).filter(
-            Product.id.in_(product_ids)
-        ).options(
-            joinedload(Product.details).joinedload(ProductDetail.market)
-        ).all()
-        
-        logging.info(f"Found {len(products)} products")
-        
-        # Her ürün için sadece favori olan detayları göster
-        for product in products:
-            product.details = [detail for detail in product.details if detail.is_favorite]
-            logging.info(f"Product {product.id} has {len(product.details)} favorite details")
-            for detail in product.details:
-                logging.info(f"Detail: product_id={detail.product_id}, market_id={detail.market_id}, is_favorite={detail.is_favorite}")
-        
-        return products
+        return favorite_details
     except Exception as e:
         logging.error(f"Error in get_favorite_products: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

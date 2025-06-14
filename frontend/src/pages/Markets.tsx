@@ -13,19 +13,68 @@ import {
   AppBar,
   Toolbar,
   IconButton,
+  Snackbar,
+  Alert,
 } from '@mui/material';
-import { LocationOn, ShoppingCart, Logout } from '@mui/icons-material';
+import { LocationOn, ShoppingCart, Logout, Favorite, FavoriteBorder } from '@mui/icons-material';
 import axios from 'axios';
 import { Market } from '../types/market';
+import { Product } from '../types/product';
 
 const Markets: React.FC = () => {
   const navigate = useNavigate();
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
+  const [favorites, setFavorites] = useState<number[]>([]);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error'
+  });
 
   useEffect(() => {
     loadMarkets();
+    loadFavorites();
   }, []);
+
+  const loadFavorites = async () => {
+    try {
+      const response = await axios.get('http://localhost:8000/api/v1/favorites');
+      setFavorites(response.data.map((fav: any) => fav.product_id));
+    } catch (err) {
+      console.error('Error fetching favorites:', err);
+    }
+  };
+
+  const handleToggleFavorite = async (productId: number) => {
+    try {
+      const isFavorite = favorites.includes(productId);
+      const method = isFavorite ? 'DELETE' : 'POST';
+      await axios({
+        method,
+        url: `http://localhost:8000/api/v1/favorites/${productId}`
+      });
+
+      setFavorites(prev =>
+        isFavorite
+          ? prev.filter(id => id !== productId)
+          : [...prev, productId]
+      );
+
+      setSnackbar({
+        open: true,
+        message: isFavorite ? 'Ürün favorilerden çıkarıldı' : 'Ürün favorilere eklendi',
+        severity: 'success'
+      });
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+      setSnackbar({
+        open: true,
+        message: 'Favori işlemi sırasında bir hata oluştu',
+        severity: 'error'
+      });
+    }
+  };
 
   const loadMarkets = async () => {
     try {
@@ -112,6 +161,7 @@ const Markets: React.FC = () => {
                       display: 'flex', 
                       flexDirection: 'column',
                       cursor: 'pointer',
+                      position: 'relative',
                       '&:hover': {
                         boxShadow: 6,
                       },
@@ -140,6 +190,26 @@ const Markets: React.FC = () => {
                         </Typography>
                       )}
                     </CardContent>
+                    <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+                      <IconButton
+                        sx={{
+                          bgcolor: 'background.paper',
+                          '&:hover': {
+                            bgcolor: 'action.hover'
+                          }
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleFavorite(market.id);
+                        }}
+                      >
+                        {favorites.includes(market.id) ? (
+                          <Favorite color="error" />
+                        ) : (
+                          <FavoriteBorder />
+                        )}
+                      </IconButton>
+                    </Box>
                   </Card>
                 </Grid>
               );
@@ -147,6 +217,20 @@ const Markets: React.FC = () => {
           </Grid>
         )}
       </Container>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 };

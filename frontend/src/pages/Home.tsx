@@ -26,6 +26,8 @@ import {
   Toolbar,
   Button,
   Chip,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { FavoriteBorder, CompareArrows, Close, Favorite, Logout, ShoppingCart } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -47,9 +49,13 @@ const Home: React.FC = () => {
   const [sortBy, setSortBy] = useState('name');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [openModal, setOpenModal] = useState(false);
-  const [favorites, setFavorites] = useState<Set<number>>(new Set());
+  const [favorites, setFavorites] = useState<number[]>([]);
   const [testDetails, setTestDetails] = useState<ProductDetail[]>([]);
-
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error'
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -68,7 +74,7 @@ const Home: React.FC = () => {
         try {
           const favoritesData = await favoriteService.getFavorites();
           const favoriteIds = new Set<number>(favoritesData.map((f: { product_id: number }) => f.product_id));
-          setFavorites(favoriteIds);
+          setFavorites(Array.from(favoriteIds));
         } catch (error) {
           console.error('Favoriler yüklenirken hata:', error);
         }
@@ -305,42 +311,35 @@ const Home: React.FC = () => {
     );
   };
 
-  const handleFavoriteToggle = async (detailId: number) => {
+  const handleToggleFavorite = async (productId: number) => {
     try {
-      await axios.post(
-        `http://localhost:8000/api/v1/favorites/toggle/${detailId}`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
-  
-      // 1. testDetails içinde güncelle
-      setTestDetails(prev =>
-        prev.map(detail =>
-          detail.id === detailId
-            ? { ...detail, is_favorite: !detail.is_favorite }
-            : detail
-        )
-      );
-  
-      // 2. selectedProduct içinde güncelle
-      setSelectedProduct(prev => {
-        if (!prev) return prev;
-        const updatedDetails = prev.details.map(d =>
-          d.id === detailId ? { ...d, is_favorite: !d.is_favorite } : d
-        );
-        return { ...prev, details: updatedDetails };
+      const isFavorite = favorites.includes(productId);
+      const method = isFavorite ? 'DELETE' : 'POST';
+      await axios({
+        method,
+        url: `http://localhost:8000/api/v1/favorites/${productId}`
       });
-  
-    } catch (error) {
-      console.error('Favori güncellenemedi:', error);
+
+      setFavorites(prev =>
+        isFavorite
+          ? prev.filter(id => id !== productId)
+          : [...prev, productId]
+      );
+
+      setSnackbar({
+        open: true,
+        message: isFavorite ? 'Ürün favorilerden çıkarıldı' : 'Ürün favorilere eklendi',
+        severity: 'success'
+      });
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+      setSnackbar({
+        open: true,
+        message: 'Favori işlemi sırasında bir hata oluştu',
+        severity: 'error'
+      });
     }
   };
-  
-  
 
   if (loading) {
     return (
@@ -367,125 +366,150 @@ const Home: React.FC = () => {
         </Toolbar>
       </AppBar>
       <Container maxWidth="lg" sx={{ py: 2 }}>
-        <>
-          <Box sx={{ mb: 4 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Ürün Ara"
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                />
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <FormControl fullWidth>
-                  <InputLabel>Kategori</InputLabel>
-                  <Select
-                    value={selectedCategory}
-                    label="Kategori"
-                    onChange={(e) => handleCategoryChange(e.target.value as number | '')}
-                  >
-                    <MenuItem value="">Tümü</MenuItem>
-                    {categories.map((category) => (
-                      <MenuItem key={category.id} value={category.id}>
-                        {category.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={3}>
-                <FormControl fullWidth>
-                  <InputLabel>Sırala</InputLabel>
-                  <Select
-                    value={sortBy}
-                    label="Sırala"
-                    onChange={(e) => handleSort(e.target.value)}
-                  >
-                    <MenuItem value="name">İsme Göre</MenuItem>
-                    <MenuItem value="price_asc">Fiyat (Düşükten Yükseğe)</MenuItem>
-                    <MenuItem value="price_desc">Fiyat (Yüksekten Düşüğe)</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
+        <Box sx={{ mb: 4 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Ürün Ara"
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+              />
             </Grid>
-          </Box>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Kategori</InputLabel>
+                <Select
+                  value={selectedCategory}
+                  label="Kategori"
+                  onChange={(e) => handleCategoryChange(e.target.value as number | '')}
+                >
+                  <MenuItem value="">Tümü</MenuItem>
+                  {categories.map((category) => (
+                    <MenuItem key={category.id} value={category.id}>
+                      {category.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Sırala</InputLabel>
+                <Select
+                  value={sortBy}
+                  label="Sırala"
+                  onChange={(e) => handleSort(e.target.value)}
+                >
+                  <MenuItem value="name">İsme Göre</MenuItem>
+                  <MenuItem value="price_asc">Fiyat (Düşükten Yükseğe)</MenuItem>
+                  <MenuItem value="price_desc">Fiyat (Yüksekten Düşüğe)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Box>
 
-          {products.length === 0 ? (
-            <Box sx={{ textAlign: 'center', mt: 4 }}>
-              <Typography variant="h6" color="text.secondary">
-                Ürün bulunamadı
-              </Typography>
-            </Box>
-          ) : (
-            <Grid container spacing={3}>
-              {products.map((product) => (
-                <Grid item key={product.id} xs={12} sm={6} md={4} lg={3}>
-                  <Card
-                    sx={{
-                      height: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      cursor: 'pointer',
-                      '&:hover': {
-                        boxShadow: 6,
-                      },
-                    }}
-                    onClick={() => handleProductClick(product)}
-                  >
-                    <CardMedia
-                      component="img"
-                      height="200"
-                      image={product.image_url || 'https://via.placeholder.com/200'}
-                      alt={product.name}
-                    />
-                    <CardContent>
-                      <Typography gutterBottom variant="h6" component="h2">
-                        {product.name}
+        {products.length === 0 ? (
+          <Box sx={{ textAlign: 'center', mt: 4 }}>
+            <Typography variant="h6" color="text.secondary">
+              Ürün bulunamadı
+            </Typography>
+          </Box>
+        ) : (
+          <Grid container spacing={3}>
+            {products.map((product) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>
+                <Card
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    position: 'relative',
+                    '&:hover': {
+                      boxShadow: 6,
+                      cursor: 'pointer'
+                    }
+                  }}
+                  onClick={() => handleProductClick(product)}
+                >
+                  <CardMedia
+                    component="img"
+                    height="200"
+                    image={product.image_url || 'https://via.placeholder.com/200'}
+                    alt={product.name}
+                  />
+                  <CardContent>
+                    <Typography gutterBottom variant="h6" component="h2">
+                      {product.name}
+                    </Typography>
+                    {product.brand && (
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                        {product.brand}
                       </Typography>
-                      {product.brand && (
-                        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                          {product.brand}
-                        </Typography>
-                      )}
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        {product.description}
+                    )}
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {product.description}
+                    </Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="h6" color="primary">
+                        {formatPrice(getLowestPrice(product.details || []))}
                       </Typography>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="h6" color="primary">
-                          {formatPrice(getLowestPrice(product.details || []))}
-                        </Typography>
-                        <Box>
-                          <IconButton
-                            onClick={(e: React.MouseEvent) => {
-                              e.stopPropagation();
-                              if (product.details && product.details.length > 0) {
-                                handleFavoriteToggle(product.details[0].id);
-                              }
-                            }}
-                          >
-                            {product.details && product.details.length > 0 && product.details[0].is_favorite 
-                              ? <Favorite color="error" /> 
-                              : <FavoriteBorder />}
-                          </IconButton>
-                          <IconButton
-                            onClick={(e: React.MouseEvent) => {
-                              e.stopPropagation();
-                              // Fiyat karşılaştırma işlemi
-                            }}
-                          >
-                            <CompareArrows />
-                          </IconButton>
-                        </Box>
+                      <Box>
+                        <IconButton
+                          sx={{
+                            bgcolor: 'background.paper',
+                            '&:hover': {
+                              bgcolor: 'action.hover'
+                            }
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleFavorite(product.id);
+                          }}
+                        >
+                          {favorites.includes(product.id) ? (
+                            <Favorite color="error" />
+                          ) : (
+                            <FavoriteBorder />
+                          )}
+                        </IconButton>
+                        <IconButton
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            // Fiyat karşılaştırma işlemi
+                          }}
+                        >
+                          <CompareArrows />
+                        </IconButton>
                       </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          )}
-        </>
+                    </Box>
+                  </CardContent>
+                  <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
+                    <IconButton
+                      sx={{
+                        bgcolor: 'background.paper',
+                        '&:hover': {
+                          bgcolor: 'action.hover'
+                        }
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleFavorite(product.id);
+                      }}
+                    >
+                      {favorites.includes(product.id) ? (
+                        <Favorite color="error" />
+                      ) : (
+                        <FavoriteBorder />
+                      )}
+                    </IconButton>
+                  </Box>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        )}
       </Container>
 
       {/* Product Detail Modal */}
@@ -631,28 +655,36 @@ const Home: React.FC = () => {
                   color="primary"
                   onClick={() => {
                     if (selectedProduct && selectedProduct.details && selectedProduct.details.length > 0) {
-                      handleFavoriteToggle(selectedProduct.details[0].id);
+                      handleToggleFavorite(selectedProduct.details[0].id);
                     }
                   }}
                 >
-                  {selectedProduct && selectedProduct.details && selectedProduct.details.length > 0 && selectedProduct.details[0].is_favorite 
-                    ? <Favorite color="error" /> 
-                    : <FavoriteBorder />}
+                  {selectedProduct && selectedProduct.details && selectedProduct.details.length > 0 && favorites.includes(selectedProduct.id) ? (
+                    <Favorite color="error" />
+                  ) : (
+                    <FavoriteBorder />
+                  )}
                 </Button>
               </Box>
             </>
           )}
         </Box>
       </Modal>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
-
-
-
-
   );
-
-
-
 };
 
 export default Home; 

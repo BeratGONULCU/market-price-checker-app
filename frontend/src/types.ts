@@ -22,6 +22,7 @@ export interface ProductDetail {
   created_at: string;
   updated_at: string;
   market: Market;
+  product: Product;
 }
 
 export interface Market {
@@ -41,6 +42,7 @@ export interface User {
   id: number;
   name: string;
   email: string;
+  password: string;
   image_url?: string;
   is_active: boolean;
   is_superuser: boolean;

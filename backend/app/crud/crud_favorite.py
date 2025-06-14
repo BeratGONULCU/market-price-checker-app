@@ -3,6 +3,10 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.models.favorite import Favorite
 from app.models.product_detail import ProductDetail
+import logging
+import traceback
+
+logger = logging.getLogger(__name__)
 
 def toggle_favorite(db: Session, detail_id: int, user_id: int) -> Favorite:
     """
@@ -48,14 +52,14 @@ def get_favorites_by_user(db: Session, user_id: int) -> list[Favorite]:
     """
     return db.query(Favorite).filter(Favorite.user_id == user_id).all()
 
-def get_product_detail_by_product_and_market(db: Session, product_id: int, market_id: int) -> Optional[models.ProductDetail]:
-    return db.query(models.ProductDetail).filter(
-        models.ProductDetail.product_id == product_id,
-        models.ProductDetail.market_id == market_id
+def get_product_detail_by_product_and_market(db: Session, product_id: int, market_id: int) -> Optional[ProductDetail]:
+    return db.query(ProductDetail).filter(
+        ProductDetail.product_id == product_id,
+        ProductDetail.market_id == market_id
     ).first()
 
-def update_product_detail_favorite(db: Session, product_detail_id: int, is_favorite: bool) -> models.ProductDetail:
-    product_detail = db.query(models.ProductDetail).filter(models.ProductDetail.id == product_detail_id).first()
+def update_product_detail_favorite(db: Session, product_detail_id: int, is_favorite: bool) -> ProductDetail:
+    product_detail = db.query(ProductDetail).filter(ProductDetail.id == product_detail_id).first()
     if product_detail:
         product_detail.is_favorite = is_favorite
         db.commit()
@@ -63,8 +67,29 @@ def update_product_detail_favorite(db: Session, product_detail_id: int, is_favor
     return product_detail
 
 def get_favorite_product_details(
-    db: Session, user_id: int, skip: int = 0, limit: int = 100
-) -> List[models.ProductDetail]:
-    return db.query(models.ProductDetail).filter(
-        models.ProductDetail.is_favorite == True
-    ).offset(skip).limit(limit).all() 
+    db: Session, skip: int = 0, limit: int = 100
+) -> List[ProductDetail]:
+    """
+    Get all favorite products from product_details table.
+    """
+    try:
+        logger.info("Getting favorite product details")
+        logger.info(f"Skip: {skip}, Limit: {limit}")
+        
+        # Test query
+        test_query = db.query(ProductDetail).filter(ProductDetail.is_favorite == True)
+        logger.info(f"Generated SQL: {test_query.statement}")
+        
+        # Execute query
+        favorites = test_query.offset(skip).limit(limit).all()
+        logger.info(f"Found {len(favorites)} favorite products")
+        
+        if favorites:
+            logger.info(f"First favorite product: {favorites[0]}")
+            logger.info(f"First favorite product details: id={favorites[0].id}, product_id={favorites[0].product_id}, is_favorite={favorites[0].is_favorite}")
+        
+        return favorites
+    except Exception as e:
+        logger.error(f"Error in get_favorite_product_details: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise 

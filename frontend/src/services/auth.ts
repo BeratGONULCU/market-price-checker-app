@@ -8,8 +8,9 @@ interface LoginRequest {
 
 interface UpdateProfileRequest {
   name?: string;
-  current_password?: string;
-  new_password?: string;
+  email?: string;
+  password?: string;
+  image_url?: string;
 }
 
 const authService = {
@@ -34,7 +35,7 @@ const authService = {
   },
 
   logout: async (): Promise<void> => {
-    await api.post('/api/auth/logout/');
+    localStorage.removeItem('token');
   }
 };
 

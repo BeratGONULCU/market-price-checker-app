@@ -23,8 +23,7 @@ const Profile: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    currentPassword: '',
-    newPassword: '',
+    password: '',
     confirmPassword: ''
   });
   const { enqueueSnackbar } = useSnackbar();
@@ -62,21 +61,17 @@ const Profile: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (formData.newPassword) {
-        if (formData.newPassword !== formData.confirmPassword) {
+      if (formData.password) {
+        if (formData.password !== formData.confirmPassword) {
           enqueueSnackbar('Yeni şifreler eşleşmiyor', { variant: 'error' });
-          return;
-        }
-        if (!formData.currentPassword) {
-          enqueueSnackbar('Mevcut şifrenizi girmelisiniz', { variant: 'error' });
           return;
         }
       }
 
       await authService.updateProfile({
         name: formData.name,
-        current_password: formData.currentPassword,
-        new_password: formData.newPassword
+        password: formData.password,
+        email: formData.email
       });
 
       setEditing(false);
@@ -143,19 +138,9 @@ const Profile: React.FC = () => {
                     <TextField
                       fullWidth
                       type="password"
-                      label="Mevcut Şifre"
-                      name="currentPassword"
-                      value={formData.currentPassword}
-                      onChange={handleInputChange}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      type="password"
                       label="Yeni Şifre"
-                      name="newPassword"
-                      value={formData.newPassword}
+                      name="password"
+                      value={formData.password}
                       onChange={handleInputChange}
                     />
                   </Grid>
@@ -188,8 +173,7 @@ const Profile: React.FC = () => {
                           setEditing(false);
                           setFormData(prev => ({
                             ...prev,
-                            currentPassword: '',
-                            newPassword: '',
+                            password: '',
                             confirmPassword: ''
                           }));
                         }}
