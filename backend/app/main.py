@@ -16,12 +16,12 @@ from app.schemas import (
     Favorite, FavoriteCreate, Market, MarketCreate, Notification, NotificationCreate,
     PriceAlert, PriceAlertBase, PriceAlertCreate, PriceHistory, PriceHistoryCreate,
     Product, ProductCreate, ProductDetail, ProductDetailCreate, Rating, RatingCreate,
-    SearchHistory, SearchHistoryCreate, ShoppingListItem, ShoppingListItemBase,
+    SearchHistory, SearchHistoryCreate, ShoppingListItemInDB, ShoppingListItemBase,
     ShoppingListItemCreate, UserSetting, UserSettingBase, UserSettingCreate
 )
 from app.database import SessionLocal, engine
 from app.db.base import Base
-from app.api.endpoints import products, categories, auth, markets, favorites, reviews, users
+from app.api.endpoints import products, categories, auth, markets, favorites, reviews, users, shopping_lists
 
 
 # Create tables
@@ -77,6 +77,7 @@ app.include_router(markets.router, prefix="/api/v1/markets", tags=["markets"])
 app.include_router(favorites.router, prefix="/api/v1/favorites", tags=["favorites"])
 app.include_router(reviews.router, prefix="/api/v1/comments", tags=["comments"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(shopping_lists.router, prefix="/api/v1/shopping-lists", tags=["shopping-lists"])
 
 # Dependency
 def get_db():
@@ -264,11 +265,11 @@ def read_user_search_history(user_id: int, skip: int = 0, limit: int = 100, db: 
     return history
 
 # ShoppingListItem endpoints
-@app.post("/shopping-list/", response_model=ShoppingListItem)
+@app.post("/shopping-list/", response_model=ShoppingListItemInDB)
 def create_shopping_list_item(item: ShoppingListItemCreate, user_id: int, db: Session = Depends(get_db)):
     return crud.create_shopping_list_item(db=db, item=item, user_id=user_id)
 
-@app.get("/users/{user_id}/shopping-list/", response_model=List[ShoppingListItem])
+@app.get("/users/{user_id}/shopping-list/", response_model=List[ShoppingListItemInDB])
 def read_user_shopping_list(user_id: int, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     items = crud.get_user_shopping_list(db, user_id=user_id, skip=skip, limit=limit)
     return items

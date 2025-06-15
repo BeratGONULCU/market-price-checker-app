@@ -37,6 +37,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Checkbox,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -56,7 +57,7 @@ import { Product } from '../types/product';
 import { Market } from '../types/market';
 import { useSnackbar } from 'notistack';
 import shoppingListService from '../services/shoppingList';
-import { ShoppingList, ShoppingListItem } from '../types';
+import { ShoppingListType as ShoppingList, ShoppingListItemType as ShoppingListItem } from '../types/index';
 
 interface MarketComparison {
   market_id: number;
@@ -81,7 +82,8 @@ const ShoppingListPage: React.FC = () => {
   const [marketComparisons, setMarketComparisons] = useState<MarketComparison[]>([]);
   const { enqueueSnackbar } = useSnackbar();
   const [showAddItemDialog, setShowAddItemDialog] = useState(false);
-  const [newItem, setNewItem] = useState({ product_id: 0, quantity: 1 });
+  const [selectedProduct, setSelectedProduct] = useState<number | ''>('');
+  const [quantity, setQuantity] = useState(1);
   const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
@@ -194,39 +196,31 @@ const ShoppingListPage: React.FC = () => {
     }
   };
 
-  const handleDeleteItem = async (itemId: number) => {
+  const handleRemoveItem = async (itemId: number) => {
     try {
-      await axios.delete(`http://localhost:8000/api/v1/shopping-lists/items/${itemId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      await axios.delete(`http://localhost:8000/api/v1/shopping-lists/items/${itemId}`);
       if (selectedList) {
-        const updatedItems = selectedList.items.filter(item => item.id !== itemId);
+        const updatedItems = selectedList.items.filter((item: ShoppingListItem) => item.id !== itemId);
         setSelectedList({ ...selectedList, items: updatedItems });
         enqueueSnackbar('Ürün listeden kaldırıldı', { variant: 'success' });
       }
     } catch (error) {
-      console.error('Ürün silinirken hata:', error);
-      enqueueSnackbar('Ürün silinirken bir hata oluştu', { variant: 'error' });
+      console.error('Ürün kaldırılırken hata:', error);
+      enqueueSnackbar('Ürün kaldırılırken bir hata oluştu', { variant: 'error' });
     }
   };
 
   const handleToggleItem = async (itemId: number) => {
     try {
-      const item = selectedList?.items.find(i => i.id === itemId);
+      const item = selectedList?.items.find((i: ShoppingListItem) => i.id === itemId);
       if (!item) return;
 
       await axios.put(`http://localhost:8000/api/v1/shopping-lists/items/${itemId}`, {
         is_checked: !item.is_checked
-      }, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
       });
 
       if (selectedList) {
-        const updatedItems = selectedList.items.map(item =>
+        const updatedItems = selectedList.items.map((item: ShoppingListItem) =>
           item.id === itemId ? { ...item, is_checked: !item.is_checked } : item
         );
         setSelectedList({ ...selectedList, items: updatedItems });
@@ -281,26 +275,22 @@ const ShoppingListPage: React.FC = () => {
   };
 
   const handleAddItem = async () => {
-    if (!selectedList) return;
+    if (!selectedProduct || !selectedList) return;
 
     try {
-      const response = await axios.post(
-        `http://localhost:8000/api/v1/shopping-lists/${selectedList.id}/items`,
-        newItem,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }
-      );
+      const response = await axios.post(`http://localhost:8000/api/v1/shopping-lists/${selectedList.id}/items`, {
+        product_id: selectedProduct,
+        quantity
+      });
 
-      // Listeyi güncelle
-      const updatedList = { ...selectedList };
-      updatedList.items = [...updatedList.items, response.data];
+      const updatedList: ShoppingList = {
+        ...selectedList,
+        items: [...selectedList.items, response.data]
+      };
       setSelectedList(updatedList);
-
       setShowAddItemDialog(false);
-      setNewItem({ product_id: 0, quantity: 1 });
+      setSelectedProduct('');
+      setQuantity(1);
       enqueueSnackbar('Ürün listeye eklendi', { variant: 'success' });
     } catch (error) {
       console.error('Ürün eklenirken hata:', error);
@@ -412,6 +402,10 @@ const ShoppingListPage: React.FC = () => {
                         {selectedList.items.map((item) => (
                           <React.Fragment key={item.id}>
                             <ListItem>
+                              <Checkbox
+                                checked={item.is_checked}
+                                onChange={() => handleToggleItem(item.id)}
+                              />
                               <ListItemText
                                 primary={item.product.name}
                                 secondary={`${item.quantity} adet - ${item.product.details[0]?.price.toLocaleString('tr-TR', {
@@ -422,14 +416,7 @@ const ShoppingListPage: React.FC = () => {
                               <ListItemSecondaryAction>
                                 <IconButton
                                   edge="end"
-                                  onClick={() => handleToggleItem(item.id)}
-                                  color={item.is_checked ? 'primary' : 'default'}
-                                >
-                                  <SaveIcon />
-                                </IconButton>
-                                <IconButton
-                                  edge="end"
-                                  onClick={() => handleDeleteItem(item.id)}
+                                  onClick={() => handleRemoveItem(item.id)}
                                 >
                                   <DeleteIcon />
                                 </IconButton>
@@ -451,23 +438,27 @@ const ShoppingListPage: React.FC = () => {
                     <Box>
                       {/* Kategorilere göre gruplandırılmış ürünler */}
                       {Object.entries(
-                        selectedList.items.reduce((acc, item) => {
-                          const category = item.product.category.name;
-                          if (!acc[category]) {
-                            acc[category] = [];
+                        selectedList.items.reduce((acc: Record<string, ShoppingListItem[]>, item) => {
+                          const categoryName = item.product.category.name;
+                          if (!acc[categoryName]) {
+                            acc[categoryName] = [];
                           }
-                          acc[category].push(item);
+                          acc[categoryName].push(item);
                           return acc;
-                        }, {} as Record<string, typeof selectedList.items>)
-                      ).map(([categoryId, items]) => (
-                        <Box key={categoryId} sx={{ mb: 3 }}>
+                        }, {})
+                      ).map(([categoryName, items]) => (
+                        <Box key={categoryName} sx={{ mb: 3 }}>
                           <Typography variant="h6" gutterBottom>
-                            {categoryId}
+                            {categoryName}
                           </Typography>
                           <List>
                             {items.map((item) => (
                               <React.Fragment key={item.id}>
                                 <ListItem>
+                                  <Checkbox
+                                    checked={item.is_checked}
+                                    onChange={() => handleToggleItem(item.id)}
+                                  />
                                   <ListItemText
                                     primary={item.product.name}
                                     secondary={`${item.quantity} adet`}
@@ -475,20 +466,13 @@ const ShoppingListPage: React.FC = () => {
                                   <ListItemSecondaryAction>
                                     <IconButton
                                       edge="end"
-                                      onClick={() => handleToggleItem(item.id)}
-                                      color={item.is_checked ? 'primary' : 'default'}
-                                    >
-                                      <SaveIcon />
-                                    </IconButton>
-                                    <IconButton
-                                      edge="end"
-                                      onClick={() => handleDeleteItem(item.id)}
+                                      aria-label="delete"
+                                      onClick={() => handleRemoveItem(item.id)}
                                     >
                                       <DeleteIcon />
                                     </IconButton>
                                   </ListItemSecondaryAction>
                                 </ListItem>
-                                <Divider />
                               </React.Fragment>
                             ))}
                           </List>
@@ -619,8 +603,8 @@ const ShoppingListPage: React.FC = () => {
           <FormControl fullWidth sx={{ mt: 2 }}>
             <InputLabel>Ürün</InputLabel>
             <Select
-              value={newItem.product_id}
-              onChange={(e) => setNewItem({ ...newItem, product_id: Number(e.target.value) })}
+              value={selectedProduct}
+              onChange={(e) => setSelectedProduct(Number(e.target.value))}
               label="Ürün"
             >
               {products.map((product) => (
@@ -634,8 +618,8 @@ const ShoppingListPage: React.FC = () => {
             fullWidth
             type="number"
             label="Adet"
-            value={newItem.quantity}
-            onChange={(e) => setNewItem({ ...newItem, quantity: Number(e.target.value) })}
+            value={quantity}
+            onChange={(e) => setQuantity(Number(e.target.value))}
             sx={{ mt: 2 }}
           />
         </DialogContent>

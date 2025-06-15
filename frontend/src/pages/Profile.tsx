@@ -10,76 +10,58 @@ import {
   Grid,
   CircularProgress,
   Avatar,
-  Divider
+  Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
-import { User } from '../types';
-import authService from '../services/auth';
+import axios from 'axios';
+import { User } from '../types/index';
 
 const Profile: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
-  });
+  const [openDialog, setOpenDialog] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
   const { enqueueSnackbar } = useSnackbar();
 
   useEffect(() => {
-    fetchUserProfile();
+    fetchUser();
   }, []);
 
-  const fetchUserProfile = async () => {
+  const fetchUser = async () => {
     try {
       setLoading(true);
-      const userData = await authService.getCurrentUser();
-      setUser(userData);
-      setFormData(prev => ({
-        ...prev,
-        name: userData.name,
-        email: userData.email
-      }));
+      const response = await axios.get<User>('http://localhost:8000/api/v1/users/me');
+      setUser(response.data);
+      setName(response.data.name);
+      setEmail(response.data.email);
+      setImageUrl(response.data.image_url || '');
     } catch (error) {
-      console.error('Error fetching user profile:', error);
-      enqueueSnackbar('Profil bilgileri yüklenirken bir hata oluştu', { variant: 'error' });
+      console.error('Error fetching user:', error);
+      enqueueSnackbar('Kullanıcı bilgileri yüklenirken hata oluştu', { variant: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUpdateProfile = async () => {
     try {
-      if (formData.password) {
-        if (formData.password !== formData.confirmPassword) {
-          enqueueSnackbar('Yeni şifreler eşleşmiyor', { variant: 'error' });
-          return;
-        }
-      }
-
-      await authService.updateProfile({
-        name: formData.name,
-        password: formData.password,
-        email: formData.email
+      const response = await axios.put<User>('http://localhost:8000/api/v1/users/me', {
+        name,
+        email,
+        image_url: imageUrl
       });
-
-      setEditing(false);
-      enqueueSnackbar('Profil başarıyla güncellendi', { variant: 'success' });
-      fetchUserProfile();
+      setUser(response.data);
+      setOpenDialog(false);
+      enqueueSnackbar('Profil güncellendi', { variant: 'success' });
     } catch (error) {
       console.error('Error updating profile:', error);
-      enqueueSnackbar('Profil güncellenirken bir hata oluştu', { variant: 'error' });
+      enqueueSnackbar('Profil güncellenirken hata oluştu', { variant: 'error' });
     }
   };
 
@@ -87,6 +69,14 @@ const Profile: React.FC = () => {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography>Yükleniyor...</Typography>
       </Box>
     );
   }
@@ -101,101 +91,62 @@ const Profile: React.FC = () => {
           <Box display="flex" alignItems="center" mb={3}>
             <Avatar
               sx={{ width: 100, height: 100, mr: 3 }}
-              src={user?.image_url}
+              src={user.image_url}
             />
             <Box>
-              <Typography variant="h5">{user?.name}</Typography>
+              <Typography variant="h5">{user.name}</Typography>
               <Typography variant="body1" color="text.secondary">
-                {user?.email}
+                {user.email}
               </Typography>
             </Box>
           </Box>
           <Divider sx={{ my: 3 }} />
-          <form onSubmit={handleSubmit}>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Ad Soyad"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  disabled={!editing}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="E-posta"
-                  name="email"
-                  value={formData.email}
-                  disabled
-                />
-              </Grid>
-              {editing && (
-                <>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      type="password"
-                      label="Yeni Şifre"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      type="password"
-                      label="Yeni Şifre (Tekrar)"
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleInputChange}
-                    />
-                  </Grid>
-                </>
-              )}
-              <Grid item xs={12}>
-                <Box display="flex" gap={2}>
-                  {editing ? (
-                    <>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        type="submit"
-                      >
-                        Kaydet
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        onClick={() => {
-                          setEditing(false);
-                          setFormData(prev => ({
-                            ...prev,
-                            password: '',
-                            confirmPassword: ''
-                          }));
-                        }}
-                      >
-                        İptal
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={() => setEditing(true)}
-                    >
-                      Düzenle
-                    </Button>
-                  )}
-                </Box>
-              </Grid>
-            </Grid>
-          </form>
+          <Button
+            variant="contained"
+            onClick={() => setOpenDialog(true)}
+          >
+            Profili Düzenle
+          </Button>
         </CardContent>
       </Card>
+
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
+        <DialogTitle>Profili Düzenle</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Ad Soyad"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="E-posta"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Profil Resmi URL"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)}>İptal</Button>
+          <Button onClick={handleUpdateProfile} variant="contained">
+            Kaydet
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

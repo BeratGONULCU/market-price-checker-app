@@ -11,7 +11,8 @@ class ShoppingListItemCreate(ShoppingListItemBase):
     pass
 
 class ShoppingListItemUpdate(ShoppingListItemBase):
-    pass
+    product_id: Optional[int] = None
+    quantity: Optional[int] = None
 
 class ShoppingListItemInDB(ShoppingListItemBase):
     id: int
@@ -26,10 +27,11 @@ class ShoppingListBase(BaseModel):
     name: str
 
 class ShoppingListCreate(ShoppingListBase):
-    pass
+    items: Optional[List[ShoppingListItemCreate]] = None
 
 class ShoppingListUpdate(ShoppingListBase):
-    pass
+    name: Optional[str] = None
+    items: Optional[List[ShoppingListItemCreate]] = None
 
 class ShoppingListInDB(ShoppingListBase):
     id: int
@@ -37,6 +39,16 @@ class ShoppingListInDB(ShoppingListBase):
     created_at: datetime
     updated_at: datetime
     items: List[ShoppingListItemInDB] = []
+
+    class Config:
+        from_attributes = True
+
+class ShoppingList(ShoppingListBase):
+    id: int
+    user_id: int
+    items: List[ShoppingListItemInDB]
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

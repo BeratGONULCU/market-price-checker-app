@@ -1,10 +1,10 @@
 export interface Product {
   id: number;
   name: string;
-  description: string;
-  image_url: string;
-  brand: string;
-  barcode: string;
+  description?: string;
+  brand?: string;
+  image_url?: string;
+  barcode?: string;
   created_at: string;
   updated_at: string;
   details: ProductDetail[];
@@ -43,27 +43,25 @@ export interface User {
   name: string;
   email: string;
   password: string;
-  image_url?: string;
+  created_at: string;
+  updated_at: string;
   is_active: boolean;
   is_superuser: boolean;
-  created_at: string;
-  updated_at: string | null;
 }
 
 export interface Category {
   id: number;
   name: string;
-  description: string;
-  parent_id: number | null;
+  description?: string;
+  parent_id?: number;
   created_at: string;
   updated_at: string;
 }
 
 export interface ShoppingList {
   id: number;
-  name: string;
   user_id: number;
-  items: ShoppingListItem[];
+  name: string;
   created_at: string;
   updated_at: string;
 }
@@ -72,12 +70,41 @@ export interface ShoppingListItem {
   id: number;
   shopping_list_id: number;
   product_id: number;
-  product: Product;
   quantity: number;
-  completed: boolean;
-  is_checked: boolean;
+  notes?: string;
   created_at: string;
   updated_at: string;
+}
+
+// Extended interfaces for frontend use
+export interface ShoppingListWithItems extends ShoppingList {
+  items: ShoppingListItemWithProduct[];
+}
+
+export interface ShoppingListItemWithProduct extends ShoppingListItem {
+  product: Product;
+}
+
+export interface CategoryWithProducts extends Category {
+  products: Product[];
+}
+
+// API Response types
+export interface ApiResponse<T> {
+  data: T;
+  message?: string;
+  error?: string;
+}
+
+// Form types
+export interface CreateShoppingListForm {
+  name: string;
+}
+
+export interface AddItemToListForm {
+  product_id: number;
+  quantity: number;
+  notes?: string;
 }
 
 export interface RegisterRequest {

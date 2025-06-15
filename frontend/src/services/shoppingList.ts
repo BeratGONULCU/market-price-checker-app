@@ -1,33 +1,36 @@
-import { ShoppingList } from '../types';
+import { ShoppingListType as ShoppingList } from '../types/index';
 import api from './api';
 
 const shoppingListService = {
   getLists: async (): Promise<ShoppingList[]> => {
-    const response = await api.get('/shopping-lists/');
+    const response = await api.get('/api/v1/shopping-lists/');
     return response.data;
   },
 
   getList: async (id: number): Promise<ShoppingList> => {
-    const response = await api.get(`/shopping-lists/${id}/`);
+    const response = await api.get(`/api/v1/shopping-lists/${id}/`);
     return response.data;
   },
 
   createList: async (name: string): Promise<ShoppingList> => {
-    const response = await api.post('/shopping-lists/', { name });
+    const response = await api.post('/api/v1/shopping-lists/', { 
+      name,
+      items: [] 
+    });
     return response.data;
   },
 
   updateList: async (id: number, name: string): Promise<ShoppingList> => {
-    const response = await api.put(`/shopping-lists/${id}/`, { name });
+    const response = await api.put(`/api/v1/shopping-lists/${id}/`, { name });
     return response.data;
   },
 
   deleteList: async (id: number): Promise<void> => {
-    await api.delete(`/shopping-lists/${id}/`);
+    await api.delete(`/api/v1/shopping-lists/${id}/`);
   },
 
   addItem: async (listId: number, productId: number, quantity: number): Promise<ShoppingList> => {
-    const response = await api.post(`/shopping-lists/${listId}/items/`, {
+    const response = await api.post(`/api/v1/shopping-lists/${listId}/items/`, {
       product_id: productId,
       quantity
     });
@@ -35,12 +38,12 @@ const shoppingListService = {
   },
 
   updateItem: async (itemId: number, data: { completed?: boolean; quantity?: number }): Promise<ShoppingList> => {
-    const response = await api.put(`/shopping-list-items/${itemId}/`, data);
+    const response = await api.put(`/api/v1/shopping-list-items/${itemId}/`, data);
     return response.data;
   },
 
   removeItem: async (itemId: number): Promise<void> => {
-    await api.delete(`/shopping-list-items/${itemId}/`);
+    await api.delete(`/api/v1/shopping-list-items/${itemId}/`);
   }
 };
 

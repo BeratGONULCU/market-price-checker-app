@@ -33,8 +33,12 @@ export interface ProductDetail {
 export interface Product {
   id: number;
   name: string;
-  description: string;
+  description?: string;
+  brand?: string;
+  barcode?: string;
   image_url?: string;
+  category_id: number;
+  category: Category;
   details: ProductDetail[];
   created_at: string;
   updated_at: string;
@@ -43,7 +47,7 @@ export interface Product {
 export interface Category {
   id: number;
   name: string;
-  description: string;
+  description?: string;
   parent_id: number | null;
   created_at: string;
   updated_at: string;
@@ -70,5 +74,53 @@ export interface User {
   id: number;
   email: string;
   name: string;
+  image_url?: string;
+  created_at: string;
+  updated_at: string;
 }
+
+export interface ShoppingListItem {
+  id: number;
+  shopping_list_id: number;
+  product_id: number;
+  quantity: number;
+  is_checked: boolean;
+  notes?: string;
+  product: Product;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShoppingList {
+  id: number;
+  user_id: number;
+  name: string;
+  items: ShoppingListItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Store {
+  id: number;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Price {
+  id: number;
+  product_id: number;
+  store_id: number;
+  price: number;
+  created_at: string;
+  updated_at: string;
+  product?: Product;
+  store?: Store;
+}
+
+export type { ShoppingList as ShoppingListType };
+export type { ShoppingListItem as ShoppingListItemType };
 

@@ -10,7 +10,7 @@ from .rating import Rating, RatingCreate, RatingUpdate, RatingInDB
 from .price_history import PriceHistory, PriceHistoryCreate, PriceHistoryUpdate, PriceHistoryInDB
 from .price_alert import PriceAlert, PriceAlertCreate, PriceAlertUpdate, PriceAlertInDB, PriceAlertBase
 from .search_history import SearchHistory, SearchHistoryCreate, SearchHistoryUpdate, SearchHistoryInDB
-from .shopping_list_item import ShoppingListItem, ShoppingListItemCreate, ShoppingListItemUpdate, ShoppingListItemInDB, ShoppingListItemBase
+from .shopping_list import ShoppingListInDB, ShoppingListItemInDB, ShoppingListItemBase, ShoppingListItemCreate, ShoppingListItemUpdate, ShoppingListCreate, ShoppingListUpdate
 from .notification import Notification, NotificationCreate, NotificationUpdate, NotificationInDB
 from .user_setting import UserSetting, UserSettingCreate, UserSettingUpdate, UserSettingInDB, UserSettingBase
 from .favorite import Favorite, FavoriteCreate, FavoriteUpdate, FavoriteInDB 

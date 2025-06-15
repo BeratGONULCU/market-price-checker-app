@@ -15,22 +15,22 @@ interface UpdateProfileRequest {
 
 const authService = {
   login: async (data: LoginRequest): Promise<{ token: string; user: User }> => {
-    const response = await api.post('/api/auth/login/', data);
+    const response = await api.post('/api/v1/auth/login', data);
     return response.data;
   },
 
   register: async (data: RegisterRequest): Promise<{ token: string; user: User }> => {
-    const response = await api.post('/api/auth/register/', data);
+    const response = await api.post('/api/v1/auth/register', data);
     return response.data;
   },
 
   getCurrentUser: async (): Promise<User> => {
-    const response = await api.get('/api/auth/me/');
+    const response = await api.get('/api/v1/auth/me');
     return response.data;
   },
 
   updateProfile: async (data: UpdateProfileRequest): Promise<User> => {
-    const response = await api.put('/api/auth/me/', data);
+    const response = await api.put('/api/v1/auth/me', data);
     return response.data;
   },
 

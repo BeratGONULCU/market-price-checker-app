@@ -21,7 +21,7 @@ import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, ShoppingCart as
 import { useSnackbar } from 'notistack';
 import { useAuth } from '../contexts/AuthContext';
 import shoppingListService from '../services/shoppingList';
-import { ShoppingList } from '../types';
+import { ShoppingListType as ShoppingList } from '../types/index';
 
 const ShoppingLists: React.FC = () => {
   const navigate = useNavigate();
@@ -32,10 +32,11 @@ const ShoppingLists: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [listName, setListName] = useState('');
   const [editingList, setEditingList] = useState<ShoppingList | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) {
-      navigate('/login');
+      //navigate('/login'); --> burayı şimdilik kaldırıyoruz ama uygulama bitince tüm gerekli sayfalarda ekleme yapılacak.
       return;
     }
     loadLists();
@@ -55,14 +56,22 @@ const ShoppingLists: React.FC = () => {
 
   const handleCreateList = async () => {
     try {
+      if (!listName.trim()) {
+        setError('Liste adı boş olamaz');
+        return;
+      }
       await shoppingListService.createList(listName);
       enqueueSnackbar('Alışveriş listesi oluşturuldu', { variant: 'success' });
       setOpenDialog(false);
       setListName('');
       loadLists();
-    } catch (error) {
-      console.error('Error creating list:', error);
-      enqueueSnackbar('Alışveriş listesi oluşturulurken bir hata oluştu', { variant: 'error' });
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        setError('Lütfen önce giriş yapın');
+        // Don't navigate here, let the api interceptor handle it
+      } else {
+        setError(error.response?.data?.detail || 'Liste oluşturulurken bir hata oluştu');
+      }
     }
   };
 

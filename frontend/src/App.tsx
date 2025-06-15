@@ -18,6 +18,7 @@ import Cart from './pages/Cart';
 import { useAuth } from './contexts/AuthContext';
 import ShoppingLists from './pages/ShoppingLists';
 import ShoppingListDetail from './pages/ShoppingListDetail';
+import CategoryManagement from './components/CategoryManagement';
 
 // Auth Layout - Login ve Register sayfaları için
 const AuthLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -120,6 +121,11 @@ const App: React.FC = () => {
           <Route path="/shopping-lists/:id" element={
             <MainLayout>
               <ShoppingListDetail />
+            </MainLayout>
+          } />
+          <Route path="/categories" element={
+            <MainLayout>
+              <CategoryManagement />
             </MainLayout>
           } />
         </Routes>

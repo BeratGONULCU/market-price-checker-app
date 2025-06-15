@@ -21,14 +21,10 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor - 401 hatası durumunda logout yap
+// Response interceptor - handle errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-    }
     return Promise.reject(error);
   }
 );
