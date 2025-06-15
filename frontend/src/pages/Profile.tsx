@@ -114,37 +114,37 @@ const Profile: React.FC = () => {
         <DialogTitle>Profili Düzenle</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Ad Soyad"
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Ad Soyad"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="E-posta"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="E-posta"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
                 label="Profil Resmi URL"
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
-              />
-            </Grid>
+                    />
+                  </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenDialog(false)}>İptal</Button>
           <Button onClick={handleUpdateProfile} variant="contained">
-            Kaydet
-          </Button>
+                        Kaydet
+                      </Button>
         </DialogActions>
       </Dialog>
     </Container>

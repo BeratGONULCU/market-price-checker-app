@@ -1,11 +1,11 @@
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 
 class ShoppingListItemBase(BaseModel):
-    product_id: int
-    quantity: int = 1
-    notes: Optional[str] = None
+    product_id: int = Field(..., description="Ürün ID'si")
+    quantity: int = Field(1, description="Ürün miktarı")
+    notes: Optional[str] = Field(None, description="Ürün için notlar")
 
 class ShoppingListItemCreate(ShoppingListItemBase):
     pass
@@ -24,14 +24,16 @@ class ShoppingListItemInDB(ShoppingListItemBase):
         from_attributes = True
 
 class ShoppingListBase(BaseModel):
-    name: str
+    name: str = Field(..., description="Alışveriş listesi adı")
 
 class ShoppingListCreate(ShoppingListBase):
-    items: Optional[List[ShoppingListItemCreate]] = None
+    """
+    Yeni alışveriş listesi oluşturmak için kullanılan şema.
+    """
+    pass
 
 class ShoppingListUpdate(ShoppingListBase):
     name: Optional[str] = None
-    items: Optional[List[ShoppingListItemCreate]] = None
 
 class ShoppingListInDB(ShoppingListBase):
     id: int

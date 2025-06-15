@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, func
 from sqlalchemy.orm import relationship
 from app.db.base_class import Base
+from datetime import datetime
 
 # User model for authentication and registration
 class User(Base):
@@ -21,6 +22,6 @@ class User(Base):
     ratings = relationship("Rating", back_populates="user", cascade="all, delete-orphan")
     price_alerts = relationship("PriceAlert", back_populates="user", cascade="all, delete-orphan")
     search_history = relationship("SearchHistory", back_populates="user", cascade="all, delete-orphan")
-    shopping_list_items = relationship("ShoppingListItem", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     settings = relationship("UserSetting", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    shopping_lists = relationship("ShoppingList", back_populates="user")

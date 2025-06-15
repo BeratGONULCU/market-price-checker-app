@@ -98,7 +98,7 @@ const ShoppingListDetail: React.FC = () => {
           items: updatedItems
         };
         setList(updatedList);
-        enqueueSnackbar('Ürün listeden kaldırıldı', { variant: 'success' });
+      enqueueSnackbar('Ürün listeden kaldırıldı', { variant: 'success' });
       }
     } catch (error) {
       console.error('Error removing item:', error);
@@ -138,9 +138,9 @@ const ShoppingListDetail: React.FC = () => {
 
   if (!list) {
     return (
-      <Typography variant="h6" color="error">
+        <Typography variant="h6" color="error">
         Alışveriş listesi bulunamadı
-      </Typography>
+        </Typography>
     );
   }
 
@@ -159,38 +159,38 @@ const ShoppingListDetail: React.FC = () => {
           Ürün Ekle
         </Button>
 
-        {list.items.length === 0 ? (
-          <Typography variant="body1" color="text.secondary">
-            Bu listede henüz ürün bulunmamaktadır.
-          </Typography>
-        ) : (
-          <List>
+      {list.items.length === 0 ? (
+        <Typography variant="body1" color="text.secondary">
+          Bu listede henüz ürün bulunmamaktadır.
+        </Typography>
+      ) : (
+        <List>
             {list.items.map((item: ShoppingListItem, index: number) => (
-              <React.Fragment key={item.id}>
-                <ListItem>
-                  <Checkbox
+            <React.Fragment key={item.id}>
+              <ListItem>
+                <Checkbox
                     checked={item.is_checked}
-                    onChange={(e) => handleToggleItem(item.id, e.target.checked)}
-                  />
-                  <ListItemText
-                    primary={item.product.name}
+                  onChange={(e) => handleToggleItem(item.id, e.target.checked)}
+                />
+                <ListItemText
+                  primary={item.product.name}
                     secondary={`${item.quantity} adet`}
-                  />
-                  <ListItemSecondaryAction>
-                    <IconButton
-                      edge="end"
-                      aria-label="delete"
-                      onClick={() => handleRemoveItem(item.id)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </ListItemSecondaryAction>
-                </ListItem>
-                {index < list.items.length - 1 && <Divider />}
-              </React.Fragment>
-            ))}
-          </List>
-        )}
+                />
+                <ListItemSecondaryAction>
+                  <IconButton
+                    edge="end"
+                    aria-label="delete"
+                    onClick={() => handleRemoveItem(item.id)}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </ListItemSecondaryAction>
+              </ListItem>
+              {index < list.items.length - 1 && <Divider />}
+            </React.Fragment>
+          ))}
+        </List>
+      )}
       </Box>
 
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>

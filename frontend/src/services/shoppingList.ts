@@ -13,9 +13,9 @@ const shoppingListService = {
   },
 
   createList: async (name: string): Promise<ShoppingList> => {
-    const response = await api.post('/api/v1/shopping-lists/', { 
-      name,
-      items: [] 
+    const response = await api.post('/api/v1/shopping-lists/', {
+      name: name,
+      items: []
     });
     return response.data;
   },

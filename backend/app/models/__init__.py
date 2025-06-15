@@ -9,7 +9,7 @@ from .rating import Rating
 from .price_history import PriceHistory
 from .price_alert import PriceAlert
 from .search_history import SearchHistory
-from .shopping_list_item import ShoppingListItem
+from .shopping_list import ShoppingList, ShoppingListItem
 from .notification import Notification
 from .user_setting import UserSetting
 from .favorite import Favorite
@@ -27,6 +27,7 @@ __all__ = [
     "PriceHistory",
     "PriceAlert",
     "SearchHistory",
+    "ShoppingList",
     "ShoppingListItem",
     "Notification",
     "UserSetting",

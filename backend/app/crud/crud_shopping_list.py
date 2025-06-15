@@ -1,177 +1,161 @@
 from typing import List, Optional
 import logging
 from sqlalchemy.orm import Session
+from datetime import datetime
 
-from app.crud.base import CRUDBase
 from app.models.shopping_list import ShoppingList, ShoppingListItem
 from app.schemas.shopping_list import ShoppingListCreate, ShoppingListUpdate, ShoppingListItemCreate, ShoppingListItemUpdate
 import secrets
 
 logger = logging.getLogger(__name__)
 
-class CRUDShoppingList(CRUDBase[ShoppingList, ShoppingListCreate, ShoppingListUpdate]):
-    def create_with_items(
-        self, db: Session, *, obj_in: ShoppingListCreate, user_id: int
-    ) -> ShoppingList:
-        try:
-            logger.info(f"Creating shopping list with items for user {user_id}")
-            logger.info(f"Shopping list data: {obj_in}")
-            
-            # Create shopping list
-            db_obj = ShoppingList(
-                name=obj_in.name,
-                user_id=user_id
-            )
-            db.add(db_obj)
-            db.flush()  # Get the ID without committing
-            
-            # Create shopping list items
-            if obj_in.items:
-                for item in obj_in.items:
-                    db_item = ShoppingListItem(
-                        shopping_list_id=db_obj.id,
-                        product_id=item.product_id,
-                        quantity=item.quantity,
-                        notes=item.notes
-                    )
-                    db.add(db_item)
-            
-            db.commit()
-            db.refresh(db_obj)
-            
-            logger.info(f"Created shopping list with items: {db_obj}")
-            return db_obj
-            
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Error creating shopping list with items: {str(e)}", exc_info=True)
-            raise
-
-    def get_multi_by_user(
-        self, db: Session, *, user_id: int, skip: int = 0, limit: int = 100
-    ) -> List[ShoppingList]:
-        return (
-            db.query(self.model)
-            .filter(ShoppingList.user_id == user_id)
-            .offset(skip)
-            .limit(limit)
-            .all()
-        )
-
-    def update(
-        self, db: Session, *, db_obj: ShoppingList, obj_in: ShoppingListUpdate
-    ) -> ShoppingList:
-        try:
-            logger.info(f"Updating shopping list {db_obj.id}")
-            logger.info(f"Update data: {obj_in}")
-            
-            # Update shopping list
-            update_data = obj_in.dict(exclude_unset=True)
-            if "items" in update_data:
-                del update_data["items"]
-            
-            for field, value in update_data.items():
-                setattr(db_obj, field, value)
-            
-            # Update items if provided
-            if obj_in.items is not None:
-                # Delete existing items
-                db.query(ShoppingListItem).filter(
-                    ShoppingListItem.shopping_list_id == db_obj.id
-                ).delete()
-                
-                # Create new items
-                for item in obj_in.items:
-                    db_item = ShoppingListItem(
-                        shopping_list_id=db_obj.id,
-                        product_id=item.product_id,
-                        quantity=item.quantity,
-                        notes=item.notes
-                    )
-                    db.add(db_item)
-            
-            db.add(db_obj)
-            db.commit()
-            db.refresh(db_obj)
-            
-            logger.info(f"Updated shopping list: {db_obj}")
-            return db_obj
-            
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Error updating shopping list: {str(e)}", exc_info=True)
-            raise
-
-shopping_list = CRUDShoppingList(ShoppingList)
-
 def create_shopping_list(
     db: Session,
     shopping_list: ShoppingListCreate,
-    user_id: int
+    user_id: int = 1
 ) -> ShoppingList:
     """
-    Yeni bir alışveriş listesi oluştur.
+    Create new shopping list.
     """
-    db_shopping_list = ShoppingList(
-        name=shopping_list.name,
-        user_id=user_id
-    )
-    db.add(db_shopping_list)
-    db.commit()
-    db.refresh(db_shopping_list)
-    return db_shopping_list
+    try:
+        logger.info(f"Creating shopping list for user {user_id}")
+        logger.info(f"Shopping list data: {shopping_list}")
+        
+        # Create shopping list
+        db_obj = ShoppingList(
+            name=shopping_list.name,
+            user_id=user_id,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        
+        logger.info(f"Created shopping list with ID: {db_obj.id}")
+        return db_obj
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating shopping list: {str(e)}", exc_info=True)
+        raise
 
 def get_shopping_list(
     db: Session,
     shopping_list_id: int
 ) -> Optional[ShoppingList]:
     """
-    Belirli bir alışveriş listesini getir.
+    Get shopping list by ID.
     """
     return db.query(ShoppingList).filter(ShoppingList.id == shopping_list_id).first()
 
 def get_shopping_lists_by_user(
     db: Session,
-    user_id: int,
+    user_id: int = 1,
     skip: int = 0,
     limit: int = 100
 ) -> List[ShoppingList]:
     """
-    Kullanıcının alışveriş listelerini getir.
+    Get all shopping lists for a user.
     """
-    return db.query(ShoppingList).filter(
-        ShoppingList.user_id == user_id
-    ).offset(skip).limit(limit).all()
+    return (
+        db.query(ShoppingList)
+        .filter(ShoppingList.user_id == user_id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 def update_shopping_list(
     db: Session,
     shopping_list_id: int,
-    shopping_list: ShoppingListUpdate
+    shopping_list_update: ShoppingListUpdate
 ) -> Optional[ShoppingList]:
     """
-    Alışveriş listesini güncelle.
+    Update shopping list.
     """
-    db_shopping_list = get_shopping_list(db, shopping_list_id)
-    if db_shopping_list:
-        for key, value in shopping_list.dict(exclude_unset=True).items():
-            setattr(db_shopping_list, key, value)
+    try:
+        logger.info(f"Updating shopping list {shopping_list_id}")
+        logger.info(f"Update data: {shopping_list_update}")
+        
+        db_obj = get_shopping_list(db, shopping_list_id)
+        if not db_obj:
+            return None
+            
+        # Update shopping list
+        update_data = shopping_list_update.dict(exclude_unset=True)
+        update_data["updated_at"] = datetime.utcnow()
+        
+        for field, value in update_data.items():
+            setattr(db_obj, field, value)
+        
+        db.add(db_obj)
         db.commit()
-        db.refresh(db_shopping_list)
-    return db_shopping_list
+        db.refresh(db_obj)
+        
+        logger.info(f"Updated shopping list: {db_obj}")
+        return db_obj
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating shopping list: {str(e)}", exc_info=True)
+        raise
 
 def delete_shopping_list(
     db: Session,
     shopping_list_id: int
 ) -> bool:
     """
-    Alışveriş listesini sil.
+    Delete shopping list.
     """
-    db_shopping_list = get_shopping_list(db, shopping_list_id)
-    if db_shopping_list:
-        db.delete(db_shopping_list)
+    try:
+        db_obj = get_shopping_list(db, shopping_list_id)
+        if not db_obj:
+            return False
+            
+        db.delete(db_obj)
         db.commit()
         return True
-    return False
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting shopping list: {str(e)}", exc_info=True)
+        raise
+
+def create_shopping_list_item(
+    db: Session,
+    shopping_list_id: int,
+    product_id: int,
+    quantity: float,
+    notes: Optional[str] = None
+) -> ShoppingListItem:
+    """
+    Create new shopping list item.
+    """
+    try:
+        logger.info(f"Creating shopping list item for list {shopping_list_id}")
+        logger.info(f"Item data: product_id={product_id}, quantity={quantity}, notes={notes}")
+        
+        # Create shopping list item
+        db_obj = ShoppingListItem(
+            shopping_list_id=shopping_list_id,
+            product_id=product_id,
+            quantity=quantity,
+            notes=notes,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        
+        logger.info(f"Created shopping list item with ID: {db_obj.id}")
+        return db_obj
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating shopping list item: {str(e)}", exc_info=True)
+        raise
 
 def get_shopping_list_item(
     db: Session,
@@ -181,23 +165,6 @@ def get_shopping_list_item(
     Belirli bir alışveriş listesi ürününü getir.
     """
     return db.query(ShoppingListItem).filter(ShoppingListItem.id == item_id).first()
-
-def create_shopping_list_item(
-    db: Session,
-    item: ShoppingListItemCreate,
-    shopping_list_id: int
-) -> ShoppingListItem:
-    """
-    Alışveriş listesine yeni ürün ekle.
-    """
-    db_item = ShoppingListItem(
-        **item.dict(),
-        shopping_list_id=shopping_list_id
-    )
-    db.add(db_item)
-    db.commit()
-    db.refresh(db_item)
-    return db_item
 
 def update_shopping_list_item(
     db: Session,
@@ -234,8 +201,7 @@ def generate_share_token(
     shopping_list_id: int
 ) -> str:
     """
-    Alışveriş listesi için paylaşım token'ı oluştur.
+    Generate share token for shopping list.
     """
     token = secrets.token_urlsafe(32)
-    # Token'ı veritabanında sakla veya cache'le
     return token 

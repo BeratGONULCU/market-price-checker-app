@@ -13,7 +13,7 @@ from app.models.rating import Rating  # noqa
 from app.models.price_history import PriceHistory  # noqa
 from app.models.price_alert import PriceAlert  # noqa
 from app.models.search_history import SearchHistory  # noqa
-from app.models.shopping_list_item import ShoppingListItem  # noqa
+from app.models.shopping_list import ShoppingList, ShoppingListItem  # noqa
 from app.models.notification import Notification  # noqa
 from app.models.user_setting import UserSetting  # noqa
 from app.models.favorite import Favorite  # noqa 
