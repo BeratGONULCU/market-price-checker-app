@@ -1,7 +1,7 @@
 from typing import List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app import models
+from app import models, crud
 from app.api import deps
 from app.schemas.shopping_list import (
     ShoppingList,
@@ -135,7 +135,14 @@ def create_shopping_list_item_endpoint(
         raise HTTPException(status_code=404, detail="Shopping list not found")
     if db_shopping_list.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
-    return create_shopping_list_item(db, item, shopping_list_id)
+    
+    return create_shopping_list_item(
+        db=db,
+        shopping_list_id=shopping_list_id,
+        product_id=item.product_id,
+        quantity=item.quantity,
+        notes=item.notes
+    )
 
 @router.put("/items/{item_id}", response_model=ShoppingListItemInDB)
 def update_shopping_list_item(

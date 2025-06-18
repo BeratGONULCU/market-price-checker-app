@@ -1,6 +1,6 @@
 from typing import List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Body, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app import models, schemas
 from app.api import deps
 from app.models.shopping_list import ShoppingList, ShoppingListItem
@@ -76,13 +76,14 @@ def read_shopping_lists(
     Retrieve shopping lists.
     """
     try:
-        # Get all lists for user_id 1
-        result = get_shopping_lists_by_user(
-            db=db,
-            skip=skip,
-            limit=limit
-    )
-        return result
+        # Get all lists for user_id 1 with items
+        lists = db.query(ShoppingList).options(
+            joinedload(ShoppingList.items)
+        ).filter(
+            ShoppingList.user_id == 1
+        ).offset(skip).limit(limit).all()
+        
+        return lists
     except Exception as e:
         logger.error(f"Error retrieving shopping lists: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -99,7 +100,10 @@ def read_shopping_list(
     """
     Get shopping list by ID.
     """
-    result = get_shopping_list(db=db, shopping_list_id=id)
+    result = db.query(ShoppingList).options(
+        joinedload(ShoppingList.items)
+    ).filter(ShoppingList.id == id).first()
+    
     if not result:
         raise HTTPException(status_code=404, detail="Shopping list not found")
     return result
@@ -137,39 +141,65 @@ def delete_shopping_list_endpoint(
         raise HTTPException(status_code=404, detail="Shopping list not found")
     return delete_shopping_list(db=db, shopping_list_id=id)
 
-@router.post("/{shopping_list_id}/items", response_model=ShoppingListItemInDB)
-def create_shopping_list_item(
-    *,
+@router.get("/{shopping_list_id}/items", response_model=List[ShoppingListItemInDB])
+def get_shopping_list_items(
+    shopping_list_id: int,
     db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_user)
+):
+    db_shopping_list = get_shopping_list(db, shopping_list_id)
+    if not db_shopping_list:
+        raise HTTPException(status_code=404, detail="Shopping list not found")
+    if db_shopping_list.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    items = db.query(ShoppingListItem).options(
+        joinedload(ShoppingListItem.product)
+    ).filter(
+        ShoppingListItem.shopping_list_id == shopping_list_id
+    ).all()
+    
+    return items
+
+@router.post("/{shopping_list_id}/items", response_model=ShoppingListItemInDB)
+def create_shopping_list_item_endpoint(
     shopping_list_id: int,
     item: ShoppingListItemCreate,
-) -> Any:
-    """
-    Add new item to shopping list.
-    """
-    try:
-        # Check if shopping list exists
-        shopping_list = get_shopping_list(db=db, shopping_list_id=shopping_list_id)
-        if not shopping_list:
-            raise HTTPException(status_code=404, detail="Shopping list not found")
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_user)
+):
+    db_shopping_list = get_shopping_list(db, shopping_list_id)
+    if not db_shopping_list:
+        raise HTTPException(status_code=404, detail="Shopping list not found")
+    if db_shopping_list.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    return create_shopping_list_item(
+        db=db,
+        shopping_list_id=shopping_list_id,
+        product_id=item.product_id,
+        quantity=item.quantity,
+        notes=item.notes
+    )
 
-        # Create shopping list item
-        db_item = create_shopping_list_item(
-            db=db,
-            shopping_list_id=shopping_list_id,
-            product_id=item.product_id,
-            quantity=item.quantity,
-            notes=item.notes
-        )
-        
-        return db_item
-        
-    except Exception as e:
-        logger.error(f"Error creating shopping list item: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+@router.delete("/{shopping_list_id}/items/{item_id}")
+def delete_shopping_list_item(
+    shopping_list_id: int,
+    item_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: models.User = Depends(deps.get_current_user)
+):
+    db_shopping_list = get_shopping_list(db, shopping_list_id)
+    if not db_shopping_list:
+        raise HTTPException(status_code=404, detail="Shopping list not found")
+    if db_shopping_list.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    db_item = crud.get_shopping_list_item(db, item_id)
+    if not db_item or db_item.shopping_list_id != shopping_list_id:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if crud.delete_shopping_list_item(db, item_id):
+        return {"message": "Item deleted successfully"}
+    raise HTTPException(status_code=500, detail="Error deleting item")
 
 @router.post("/{shopping_list_id}/items/bulk", response_model=List[ShoppingListItemInDB])
 def create_shopping_list_items_bulk(

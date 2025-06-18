@@ -15,17 +15,16 @@ import {
   DialogActions,
   TextField,
   Box,
-  Paper
+  Paper,
+  CircularProgress
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, ShoppingCart as ShoppingCartIcon } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
-import { useAuth } from '../contexts/AuthContext';
 import shoppingListService from '../services/shoppingList';
 import { ShoppingListType as ShoppingList } from '../types/index';
 
 const ShoppingLists: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { enqueueSnackbar } = useSnackbar();
   const [lists, setLists] = useState<ShoppingList[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,15 +34,12 @@ const ShoppingLists: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      //navigate('/login'); --> burayı şimdilik kaldırıyoruz ama uygulama bitince tüm gerekli sayfalarda ekleme yapılacak.
-      return;
-    }
     loadLists();
-  }, [user, navigate]);
+  }, []);
 
   const loadLists = async () => {
     try {
+      setLoading(true);
       const data = await shoppingListService.getLists();
       setLists(data);
     } catch (error) {
@@ -136,42 +132,54 @@ const ShoppingLists: React.FC = () => {
       </Box>
 
       <Paper elevation={2}>
-        <List>
-          {lists.map((list) => (
-            <ListItem
-              key={list.id}
-              button
-              onClick={() => navigate(`/shopping-lists/${list.id}`)}
-            >
-              <ListItemText
-                primary={list.name}
-                secondary={`${list.items.length} ürün`}
-              />
-              <ListItemSecondaryAction>
-                <IconButton
-                  edge="end"
-                  aria-label="edit"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenDialog(list);
-                  }}
-                >
-                  <EditIcon />
-                </IconButton>
-                <IconButton
-                  edge="end"
-                  aria-label="delete"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteList(list.id);
-                  }}
-                >
-                  <DeleteIcon />
-                </IconButton>
-              </ListItemSecondaryAction>
-            </ListItem>
-          ))}
-        </List>
+        {loading ? (
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress />
+          </Box>
+        ) : lists.length === 0 ? (
+          <Box p={3} textAlign="center">
+            <Typography variant="body1" color="text.secondary">
+              Henüz alışveriş listeniz bulunmamaktadır.
+            </Typography>
+          </Box>
+        ) : (
+          <List>
+            {lists.map((list) => (
+              <ListItem
+                key={list.id}
+                button
+                onClick={() => navigate(`/shopping-lists/${list.id}`)}
+              >
+                <ListItemText
+                  primary={list.name}
+                  secondary={`${list.items.length} ürün`}
+                />
+                <ListItemSecondaryAction>
+                  <IconButton
+                    edge="end"
+                    aria-label="edit"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenDialog(list);
+                    }}
+                  >
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton
+                    edge="end"
+                    aria-label="delete"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteList(list.id);
+                    }}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </ListItemSecondaryAction>
+              </ListItem>
+            ))}
+          </List>
+        )}
       </Paper>
 
       <Dialog open={openDialog} onClose={handleCloseDialog}>

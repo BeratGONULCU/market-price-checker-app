@@ -22,12 +22,14 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { ShoppingListWithItems, Product, ShoppingListItemWithProduct } from '../types';
+import axios from 'axios';
 
 const ShoppingListDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [list, setList] = useState<ShoppingListWithItems | null>(null);
     const [products, setProducts] = useState<Product[]>([]);
+    const [productNames, setProductNames] = useState<{[key: number]: string}>({});
     const [openDialog, setOpenDialog] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<number | ''>('');
     const [quantity, setQuantity] = useState<number>(1);
@@ -45,9 +47,38 @@ const ShoppingListDetail: React.FC = () => {
             const response = await fetch(`/api/shopping-lists/${id}`);
             const data = await response.json();
             setList(data);
+            
+            // Ürün adlarını çek
+            if (data.items && data.items.length > 0) {
+                await fetchProductNames(data.items.map((item: any) => item.product_id));
+            }
         } catch (error) {
             console.error('Error fetching list details:', error);
         }
+    };
+
+    const fetchProductNames = async (productIds: number[]) => {
+        try {
+            const uniqueIds = productIds.filter((id, index) => productIds.indexOf(id) === index);
+            const names: {[key: number]: string} = {};
+            
+            for (const productId of uniqueIds) {
+                try {
+                    const response = await axios.get(`http://localhost:8000/api/v1/products/${productId}`);
+                    names[productId] = response.data.name;
+                } catch (error) {
+                    names[productId] = `Ürün ID: ${productId}`;
+                }
+            }
+            
+            setProductNames(prev => ({ ...prev, ...names }));
+        } catch (error) {
+            console.error('Error fetching product names:', error);
+        }
+    };
+
+    const getProductName = (productId: number) => {
+        return productNames[productId] || `Ürün ID: ${productId}`;
     };
 
     const fetchProducts = async () => {
@@ -76,6 +107,9 @@ const ShoppingListDetail: React.FC = () => {
                 }),
             });
             if (response.ok) {
+                // Yeni ürünün adını çek
+                await fetchProductNames([selectedProduct as number]);
+                
                 setOpenDialog(false);
                 setSelectedProduct('');
                 setQuantity(1);
@@ -147,7 +181,7 @@ const ShoppingListDetail: React.FC = () => {
                             }
                         >
                             <ListItemText
-                                primary={item.product.name}
+                                primary={getProductName(item.product_id)}
                                 secondary={
                                     <>
                                         <Typography component="span" variant="body2">

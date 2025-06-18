@@ -32,6 +32,7 @@ const ShoppingListDetail: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [newItem, setNewItem] = useState({ product_id: 0, quantity: 1 });
   const [products, setProducts] = useState<Product[]>([]);
+  const [productNames, setProductNames] = useState<{[key: number]: string}>({});
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -47,12 +48,41 @@ const ShoppingListDetail: React.FC = () => {
       setLoading(true);
       const response = await axios.get<ShoppingList>(`http://localhost:8000/api/v1/shopping-lists/${id}`);
       setList(response.data);
+      
+      // Ürün adlarını çek
+      if (response.data.items && response.data.items.length > 0) {
+        await fetchProductNames(response.data.items.map((item: ShoppingListItem) => item.product_id));
+      }
     } catch (error) {
       console.error('Error fetching shopping list:', error);
       enqueueSnackbar('Alışveriş listesi yüklenirken bir hata oluştu', { variant: 'error' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchProductNames = async (productIds: number[]) => {
+    try {
+      const uniqueIds = productIds.filter((id, index) => productIds.indexOf(id) === index);
+      const names: {[key: number]: string} = {};
+      
+      for (const productId of uniqueIds) {
+        try {
+          const response = await axios.get(`http://localhost:8000/api/v1/products/${productId}`);
+          names[productId] = response.data.name;
+        } catch (error) {
+          names[productId] = `Ürün ID: ${productId}`;
+        }
+      }
+      
+      setProductNames(prev => ({ ...prev, ...names }));
+    } catch (error) {
+      console.error('Error fetching product names:', error);
+    }
+  };
+
+  const getProductName = (productId: number) => {
+    return productNames[productId] || `Ürün ID: ${productId}`;
   };
 
   const fetchProducts = async () => {
@@ -73,6 +103,9 @@ const ShoppingListDetail: React.FC = () => {
         product_id: newItem.product_id,
         quantity: newItem.quantity
       });
+
+      // Yeni ürünün adını çek
+      await fetchProductNames([newItem.product_id]);
 
       const updatedList: ShoppingList = {
         ...list,
@@ -173,8 +206,8 @@ const ShoppingListDetail: React.FC = () => {
                   onChange={(e) => handleToggleItem(item.id, e.target.checked)}
                 />
                 <ListItemText
-                  primary={item.product.name}
-                    secondary={`${item.quantity} adet`}
+                  primary={getProductName(item.product_id)}
+                  secondary={`${item.quantity} adet`}
                 />
                 <ListItemSecondaryAction>
                   <IconButton

@@ -126,7 +126,7 @@ def create_shopping_list_item(
     db: Session,
     shopping_list_id: int,
     product_id: int,
-    quantity: float,
+    quantity: int,
     notes: Optional[str] = None
 ) -> ShoppingListItem:
     """
@@ -148,6 +148,12 @@ def create_shopping_list_item(
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
+        
+        # Load the product information
+        from sqlalchemy.orm import joinedload
+        db_obj = db.query(ShoppingListItem).options(
+            joinedload(ShoppingListItem.product)
+        ).filter(ShoppingListItem.id == db_obj.id).first()
         
         logger.info(f"Created shopping list item with ID: {db_obj.id}")
         return db_obj
