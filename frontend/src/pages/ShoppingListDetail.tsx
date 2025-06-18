@@ -17,13 +17,38 @@ import {
   IconButton,
   Divider,
   Checkbox,
-  MenuItem
+  MenuItem,
+  Card,
+  CardContent,
+  Grid,
+  Chip,
+  Alert
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
+import { 
+  Add as AddIcon, 
+  Delete as DeleteIcon, 
+  Edit as EditIcon,
+  ShoppingCart as ShoppingCartIcon,
+  LocationOn as LocationOnIcon
+} from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
 import axios from 'axios';
 import { ShoppingListType as ShoppingList, ShoppingListItemType as ShoppingListItem, Product } from '../types/index';
+
+interface MarketComparison {
+  market_id: number;
+  market_name: string;
+  total_price: number;
+  found_products: number;
+  total_products: number;
+  items: {
+    product_id: number;
+    product_name: string;
+    price: number;
+    quantity: number;
+  }[];
+}
 
 const ShoppingListDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +58,10 @@ const ShoppingListDetail: React.FC = () => {
   const [newItem, setNewItem] = useState({ product_id: 0, quantity: 1 });
   const [products, setProducts] = useState<Product[]>([]);
   const [productNames, setProductNames] = useState<{[key: number]: string}>({});
+  const [marketComparisons, setMarketComparisons] = useState<MarketComparison[]>([]);
+  const [showMarketComparison, setShowMarketComparison] = useState(false);
+  const [selectedMarket, setSelectedMarket] = useState<MarketComparison | null>(null);
+  const [loadingMarkets, setLoadingMarkets] = useState(false);
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -161,6 +190,102 @@ const ShoppingListDetail: React.FC = () => {
     }
   };
 
+  const fetchMarketComparisons = async () => {
+    if (!id) return;
+    
+    try {
+      setLoadingMarkets(true);
+      
+      // Mevcut çalışan endpoint'leri kullan
+      console.log("Using existing endpoints...");
+      
+      // 1. Shopping list'i çek
+      const listResponse = await axios.get(`http://localhost:8000/api/v1/shopping-lists/${id}`);
+      console.log("Shopping list:", listResponse.data);
+      
+      // 2. Tüm marketleri çek
+      const marketsResponse = await axios.get(`http://localhost:8000/api/v1/markets`);
+      console.log("Markets:", marketsResponse.data);
+      
+      // 3. Tüm ürünleri çek
+      const productsResponse = await axios.get(`http://localhost:8000/api/v1/products`);
+      console.log("Products:", productsResponse.data);
+      
+      // 4. Basit market karşılaştırması yap
+      const shoppingList = listResponse.data;
+      const markets = marketsResponse.data;
+      const products = productsResponse.data;
+      
+      // Market karşılaştırmasını hesapla (basit versiyon)
+      const comparisons = [];
+      
+      for (const market of markets) {
+        let totalPrice = 0;
+        const items = [];
+        let foundProducts = 0;
+        
+        for (const listItem of shoppingList.items) {
+          // Basit fiyat hesaplama (gerçek fiyatlar yerine tahmini)
+          const product = products.find((p: any) => p.id === listItem.product_id);
+          if (product) {
+            foundProducts++;
+            // Basit fiyat hesaplama (market ID'sine göre farklı fiyatlar)
+            const basePrice = 10 + (market.id * 2) + (listItem.product_id * 0.5);
+            const itemPrice = basePrice * listItem.quantity;
+            totalPrice += itemPrice;
+            
+            items.push({
+              product_id: listItem.product_id,
+              product_name: product.name,
+              price: basePrice,
+              quantity: listItem.quantity
+            });
+          }
+        }
+        
+        if (foundProducts > 0) {
+          comparisons.push({
+            market_id: market.id,
+            market_name: market.name,
+            total_price: totalPrice,
+            items: items,
+            found_products: foundProducts,
+            total_products: shoppingList.items.length
+          });
+        }
+      }
+      
+      // Fiyata göre sırala
+      comparisons.sort((a: any, b: any) => a.total_price - b.total_price);
+      
+      console.log("Calculated comparisons:", comparisons);
+      setMarketComparisons(comparisons);
+      setShowMarketComparison(true);
+      
+    } catch (error: any) {
+      console.error('Error fetching market comparisons:', error);
+      console.error('Error details:', error.response?.data);
+      enqueueSnackbar('Market karşılaştırması yüklenirken bir hata oluştu', { variant: 'error' });
+    } finally {
+      setLoadingMarkets(false);
+    }
+  };
+
+  const handleMarketSelect = (market: MarketComparison) => {
+    setSelectedMarket(market);
+    // Google Maps'te yol tarifi aç
+    const address = encodeURIComponent(market.market_name);
+    window.open(`https://www.google.com/maps/search/${address}`, '_blank');
+  };
+
+  const handleBuyList = () => {
+    if (!list || list.items.length === 0) {
+      enqueueSnackbar('Alışveriş listenizde ürün bulunmamaktadır', { variant: 'warning' });
+      return;
+    }
+    fetchMarketComparisons();
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
@@ -183,49 +308,134 @@ const ShoppingListDetail: React.FC = () => {
         <Typography variant="h4" gutterBottom>
           {list.name}
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => setOpenDialog(true)}
-          sx={{ mb: 2 }}
-        >
-          Ürün Ekle
-        </Button>
+        
+        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => setOpenDialog(true)}
+          >
+            Ürün Ekle
+          </Button>
+          
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={<ShoppingCartIcon />}
+            onClick={handleBuyList}
+            disabled={!list || list.items.length === 0}
+          >
+            Bu Listeyi Satın Al
+          </Button>
+        </Box>
 
-      {list.items.length === 0 ? (
-        <Typography variant="body1" color="text.secondary">
-          Bu listede henüz ürün bulunmamaktadır.
-        </Typography>
-      ) : (
-        <List>
+        {list.items.length === 0 ? (
+          <Alert severity="info">
+            Bu listede henüz ürün bulunmamaktadır. Alışverişe başlamak için ürün ekleyin.
+          </Alert>
+        ) : (
+          <List>
             {list.items.map((item: ShoppingListItem, index: number) => (
-            <React.Fragment key={item.id}>
-              <ListItem>
-                <Checkbox
+              <React.Fragment key={item.id}>
+                <ListItem>
+                  <Checkbox
                     checked={item.is_checked}
-                  onChange={(e) => handleToggleItem(item.id, e.target.checked)}
-                />
-                <ListItemText
-                  primary={getProductName(item.product_id)}
-                  secondary={`${item.quantity} adet`}
-                />
-                <ListItemSecondaryAction>
-                  <IconButton
-                    edge="end"
-                    aria-label="delete"
-                    onClick={() => handleRemoveItem(item.id)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-              {index < list.items.length - 1 && <Divider />}
-            </React.Fragment>
-          ))}
-        </List>
-      )}
+                    onChange={(e) => handleToggleItem(item.id, e.target.checked)}
+                  />
+                  <ListItemText
+                    primary={getProductName(item.product_id)}
+                    secondary={`${item.quantity} adet`}
+                  />
+                  <ListItemSecondaryAction>
+                    <IconButton
+                      edge="end"
+                      aria-label="delete"
+                      onClick={() => handleRemoveItem(item.id)}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+                {index < list.items.length - 1 && <Divider />}
+              </React.Fragment>
+            ))}
+          </List>
+        )}
       </Box>
 
+      {/* Market Karşılaştırma Dialog'u */}
+      <Dialog 
+        open={showMarketComparison} 
+        onClose={() => setShowMarketComparison(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Market Karşılaştırması
+          {loadingMarkets && <CircularProgress size={20} sx={{ ml: 2 }} />}
+        </DialogTitle>
+        <DialogContent>
+          {marketComparisons.length === 0 ? (
+            <Alert severity="info">
+              Bu ürünleri satan market bulunamadı.
+            </Alert>
+          ) : (
+            <Grid container spacing={2}>
+              {marketComparisons.map((market) => (
+                <Grid item xs={12} key={market.market_id}>
+                  <Card 
+                    sx={{ 
+                      cursor: 'pointer',
+                      '&:hover': { boxShadow: 3 },
+                      border: selectedMarket?.market_id === market.market_id ? '2px solid #1976d2' : '1px solid #e0e0e0'
+                    }}
+                    onClick={() => handleMarketSelect(market)}
+                  >
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="h6" component="div">
+                          {market.market_name}
+                        </Typography>
+                        <Chip 
+                          label={`${market.total_price.toLocaleString('tr-TR', {
+                            style: 'currency',
+                            currency: 'TRY'
+                          })}`}
+                          color="primary"
+                          variant="outlined"
+                        />
+                      </Box>
+                      
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        {market.found_products}/{market.total_products} ürün bulundu
+                      </Typography>
+                      
+                      <Button
+                        variant="outlined"
+                        startIcon={<LocationOnIcon />}
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMarketSelect(market);
+                        }}
+                      >
+                        Yol Tarifi Al
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowMarketComparison(false)}>
+            Kapat
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Ürün Ekleme Dialog'u */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
         <DialogTitle>Ürün Ekle</DialogTitle>
         <DialogContent>

@@ -15,4 +15,10 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW
-    EXECUTE FUNCTION update_users_updated_at(); 
+    EXECUTE FUNCTION update_users_updated_at();
+
+-- shopping_list_items tablosuna is_checked kolonu ekle
+ALTER TABLE shopping_list_items ADD COLUMN IF NOT EXISTS is_checked BOOLEAN DEFAULT FALSE;
+
+-- shopping_lists tablosuna is_checked kolonu ekle (eğer gerekirse)
+ALTER TABLE shopping_lists ADD COLUMN IF NOT EXISTS is_checked BOOLEAN DEFAULT FALSE; 

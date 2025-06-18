@@ -19,10 +19,33 @@ import {
     InputLabel,
     Select,
     MenuItem,
+    Card,
+    CardContent,
+    Chip,
+    Alert,
+    CircularProgress
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import { 
+    Add as AddIcon, 
+    Delete as DeleteIcon, 
+    ArrowBack as ArrowBackIcon,
+    ShoppingCart as ShoppingCartIcon,
+    LocationOn as LocationOnIcon
+} from '@mui/icons-material';
 import { ShoppingListWithItems, Product, ShoppingListItemWithProduct } from '../types';
 import axios from 'axios';
+
+interface MarketComparison {
+    market_id: number;
+    market_name: string;
+    total_price: number;
+    items: {
+        product_id: number;
+        product_name: string;
+        price: number;
+        quantity: number;
+    }[];
+}
 
 const ShoppingListDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -34,6 +57,10 @@ const ShoppingListDetail: React.FC = () => {
     const [selectedProduct, setSelectedProduct] = useState<number | ''>('');
     const [quantity, setQuantity] = useState<number>(1);
     const [notes, setNotes] = useState<string>('');
+    const [marketComparisons, setMarketComparisons] = useState<MarketComparison[]>([]);
+    const [showMarketComparison, setShowMarketComparison] = useState(false);
+    const [selectedMarket, setSelectedMarket] = useState<MarketComparison | null>(null);
+    const [loadingMarkets, setLoadingMarkets] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -136,6 +163,36 @@ const ShoppingListDetail: React.FC = () => {
         }
     };
 
+    const fetchMarketComparisons = async () => {
+        if (!id) return;
+        
+        try {
+            setLoadingMarkets(true);
+            const response = await axios.get(`http://localhost:8000/api/v1/shopping-lists/${id}/market-comparison`);
+            setMarketComparisons(response.data);
+            setShowMarketComparison(true);
+        } catch (error) {
+            console.error('Error fetching market comparisons:', error);
+        } finally {
+            setLoadingMarkets(false);
+        }
+    };
+
+    const handleMarketSelect = (market: MarketComparison) => {
+        setSelectedMarket(market);
+        // Google Maps'te yol tarifi aç
+        const address = encodeURIComponent(market.market_name);
+        window.open(`https://www.google.com/maps/search/${address}`, '_blank');
+    };
+
+    const handleBuyList = () => {
+        if (!list || list.items?.length === 0) {
+            alert('Alışveriş listenizde ürün bulunmamaktadır');
+            return;
+        }
+        fetchMarketComparisons();
+    };
+
     if (!list) {
         return <Typography>Yükleniyor...</Typography>;
     }
@@ -149,56 +206,73 @@ const ShoppingListDetail: React.FC = () => {
                 <Typography variant="h4">{list.name}</Typography>
             </Box>
 
-            <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setOpenDialog(true)}
-                sx={{ mb: 3 }}
-            >
-                Ürün Ekle
-            </Button>
+            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+                <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={() => setOpenDialog(true)}
+                >
+                    Ürün Ekle
+                </Button>
+                
+                <Button
+                    variant="contained"
+                    color="secondary"
+                    startIcon={<ShoppingCartIcon />}
+                    onClick={handleBuyList}
+                    disabled={!list || list.items?.length === 0}
+                >
+                    Bu Listeyi Satın Al
+                </Button>
+            </Box>
 
-            <List>
-                {list.items?.map((item: ShoppingListItemWithProduct) => (
-                    <Paper
-                        key={item.id}
-                        sx={{
-                            mb: 2,
-                            p: 2,
-                            '&:hover': {
-                                boxShadow: 3,
-                            },
-                        }}
-                    >
-                        <ListItem
-                            secondaryAction={
-                                <IconButton
-                                    edge="end"
-                                    onClick={() => handleDeleteItem(item.id)}
-                                >
-                                    <DeleteIcon />
-                                </IconButton>
-                            }
+            {list.items?.length === 0 ? (
+                <Alert severity="info">
+                    Bu listede henüz ürün bulunmamaktadır. Alışverişe başlamak için ürün ekleyin.
+                </Alert>
+            ) : (
+                <List>
+                    {list.items?.map((item: ShoppingListItemWithProduct) => (
+                        <Paper
+                            key={item.id}
+                            sx={{
+                                mb: 2,
+                                p: 2,
+                                '&:hover': {
+                                    boxShadow: 3,
+                                },
+                            }}
                         >
-                            <ListItemText
-                                primary={getProductName(item.product_id)}
-                                secondary={
-                                    <>
-                                        <Typography component="span" variant="body2">
-                                            Miktar: {item.quantity}
-                                        </Typography>
-                                        {item.notes && (
-                                            <Typography component="span" variant="body2" display="block">
-                                                Not: {item.notes}
-                                            </Typography>
-                                        )}
-                                    </>
+                            <ListItem
+                                secondaryAction={
+                                    <IconButton
+                                        edge="end"
+                                        onClick={() => handleDeleteItem(item.id)}
+                                    >
+                                        <DeleteIcon />
+                                    </IconButton>
                                 }
-                            />
-                        </ListItem>
-                    </Paper>
-                ))}
-            </List>
+                            >
+                                <ListItemText
+                                    primary={getProductName(item.product_id)}
+                                    secondary={
+                                        <>
+                                            <Typography component="span" variant="body2">
+                                                Miktar: {item.quantity}
+                                            </Typography>
+                                            {item.notes && (
+                                                <Typography component="span" variant="body2" display="block">
+                                                    Not: {item.notes}
+                                                </Typography>
+                                            )}
+                                        </>
+                                    }
+                                />
+                            </ListItem>
+                        </Paper>
+                    ))}
+                </List>
+            )}
 
             <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
                 <DialogTitle>Ürün Ekle</DialogTitle>
@@ -246,6 +320,78 @@ const ShoppingListDetail: React.FC = () => {
                     <Button onClick={() => setOpenDialog(false)}>İptal</Button>
                     <Button onClick={handleAddItem} variant="contained">
                         Ekle
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Market Karşılaştırma Dialog'u */}
+            <Dialog 
+                open={showMarketComparison} 
+                onClose={() => setShowMarketComparison(false)}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>
+                    Market Karşılaştırması
+                    {loadingMarkets && <CircularProgress size={20} sx={{ ml: 2 }} />}
+                </DialogTitle>
+                <DialogContent>
+                    {marketComparisons.length === 0 ? (
+                        <Alert severity="info">
+                            Bu ürünleri satan market bulunamadı.
+                        </Alert>
+                    ) : (
+                        <Grid container spacing={2}>
+                            {marketComparisons.map((market) => (
+                                <Grid item xs={12} key={market.market_id}>
+                                    <Card 
+                                        sx={{ 
+                                            cursor: 'pointer',
+                                            '&:hover': { boxShadow: 3 },
+                                            border: selectedMarket?.market_id === market.market_id ? '2px solid #1976d2' : '1px solid #e0e0e0'
+                                        }}
+                                        onClick={() => handleMarketSelect(market)}
+                                    >
+                                        <CardContent>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                                <Typography variant="h6" component="div">
+                                                    {market.market_name}
+                                                </Typography>
+                                                <Chip 
+                                                    label={`${market.total_price.toLocaleString('tr-TR', {
+                                                        style: 'currency',
+                                                        currency: 'TRY'
+                                                    })}`}
+                                                    color="primary"
+                                                    variant="outlined"
+                                                />
+                                            </Box>
+                                            
+                                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                                {market.items.length} ürün bulundu
+                                            </Typography>
+                                            
+                                            <Button
+                                                variant="outlined"
+                                                startIcon={<LocationOnIcon />}
+                                                size="small"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleMarketSelect(market);
+                                                }}
+                                            >
+                                                Yol Tarifi Al
+                                            </Button>
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+                            ))}
+                        </Grid>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setShowMarketComparison(false)}>
+                        Kapat
                     </Button>
                 </DialogActions>
             </Dialog>

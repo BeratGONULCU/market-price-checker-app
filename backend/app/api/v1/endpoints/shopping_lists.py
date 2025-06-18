@@ -1,7 +1,7 @@
 from typing import List, Optional, Any
-from fastapi import APIRouter, Depends, HTTPException, Query, Body, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Body, status, Response
 from sqlalchemy.orm import Session, joinedload
-from app import models, schemas
+from app import models, schemas, crud
 from app.api import deps
 from app.models.shopping_list import ShoppingList, ShoppingListItem
 from app.models.product import Product
@@ -29,9 +29,23 @@ from app.utils.pdf_generator import generate_shopping_list_pdf
 import json
 from app.models.user import User
 import logging
+from app.models.product_detail import ProductDetail
+from pydantic import BaseModel
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+class MarketComparisonResponse(BaseModel):
+    market_id: int
+    market_name: str
+    total_price: float
+    items: List[dict]
+    found_products: int
+    total_products: int
+    
+    class Config:
+        from_attributes = True
 
 @router.post("/", response_model=ShoppingList)
 def create_shopping_list_endpoint(
@@ -90,6 +104,83 @@ def read_shopping_lists(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+
+@router.get("/{shopping_list_id}/markets", response_model=List[MarketComparisonResponse])
+def get_markets_for_shopping_list(
+    *,
+    db: Session = Depends(deps.get_db),
+    shopping_list_id: int,
+):
+    """
+    Alışveriş listesindeki ürünleri satan marketleri getir.
+    """
+    # 1. Alışveriş listesindeki ürünleri al
+    items = db.query(ShoppingListItem).filter(
+        ShoppingListItem.shopping_list_id == shopping_list_id
+    ).all()
+    
+    if not items:
+        return []
+    
+    # 2. Bu ürünleri satan marketleri bul
+    product_ids = [item.product_id for item in items]
+    
+    # 3. SQL ile marketleri çek
+    query = text("""
+        SELECT DISTINCT m.id, m.name
+        FROM shopping_list_items sli
+        JOIN product_details pd ON sli.product_id = pd.product_id
+        JOIN markets m ON pd.market_id = m.id
+        WHERE sli.shopping_list_id = :list_id
+    """)
+    
+    result = db.execute(query, {"list_id": shopping_list_id})
+    markets = result.fetchall()
+    
+    comparisons = []
+    
+    for market in markets:
+        # 4. Her market için fiyat hesapla
+        price_query = text("""
+            SELECT p.name, sli.quantity, pd.price
+            FROM shopping_list_items sli
+            JOIN product_details pd ON sli.product_id = pd.product_id
+            JOIN products p ON sli.product_id = p.id
+            WHERE sli.shopping_list_id = :list_id AND pd.market_id = :market_id
+        """)
+        
+        price_result = db.execute(price_query, {
+            "list_id": shopping_list_id,
+            "market_id": market.id
+        })
+        
+        items_list = []
+        total_price = 0
+        
+        for row in price_result:
+            item_price = float(row.price) * row.quantity
+            total_price += item_price
+            
+            items_list.append({
+                "product_id": 0,  # Gerekirse eklenebilir
+                "product_name": row.name,
+                "price": float(row.price),
+                "quantity": row.quantity
+            })
+        
+        comparisons.append({
+            "market_id": market.id,
+            "market_name": market.name,
+            "total_price": total_price,
+            "items": items_list,
+            "found_products": len(items_list),
+            "total_products": len(items)
+        })
+    
+    # 5. Fiyata göre sırala
+    comparisons.sort(key=lambda x: x["total_price"])
+    
+    return comparisons
 
 @router.get("/{id}", response_model=ShoppingList)
 def read_shopping_list(
@@ -238,56 +329,6 @@ def create_shopping_list_items_bulk(
             detail=str(e)
         )
 
-@router.get("/{shopping_list_id}/market-comparison", response_model=List[MarketComparisonResponse])
-def get_market_comparison(
-    *,
-    db: Session = Depends(deps.get_db),
-    shopping_list_id: int,
-):
-    """
-    Alışveriş listesindeki ürünlerin farklı marketlerdeki fiyat karşılaştırmasını getir.
-    """
-    shopping_list = get_shopping_list(db, shopping_list_id)
-    if not shopping_list:
-        raise HTTPException(status_code=404, detail="Alışveriş listesi bulunamadı")
-    
-    # Tüm marketleri al
-    markets = db.query(Market).all()
-    comparisons = []
-    
-    for market in markets:
-        total_price = 0
-        items = []
-        
-        for list_item in shopping_list.items:
-            # Ürünün bu marketteki fiyatını bul
-            product_price = db.query(Product).filter(
-                Product.id == list_item.product_id,
-                Product.market_id == market.id
-            ).first()
-            
-            if product_price:
-                item_price = product_price.price
-                total_price += item_price * list_item.quantity
-                
-                items.append({
-                    "product_id": list_item.product_id,
-                    "product_name": product_price.name,
-                    "price": item_price,
-                    "quantity": list_item.quantity
-                })
-        
-        comparisons.append({
-            "market_id": market.id,
-            "market_name": market.name,
-            "total_price": total_price,
-            "items": items
-        })
-    
-    # Toplam fiyata göre sırala
-    comparisons.sort(key=lambda x: x["total_price"])
-    return comparisons
-
 @router.get("/{shopping_list_id}/export")
 def export_shopping_list(
     *,
@@ -302,7 +343,7 @@ def export_shopping_list(
         raise HTTPException(status_code=404, detail="Alışveriş listesi bulunamadı")
     
     # Market karşılaştırmasını al
-    market_comparisons = get_market_comparison(
+    market_comparisons = get_markets_for_shopping_list(
         db=db,
         shopping_list_id=shopping_list_id,
     )
